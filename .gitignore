@@ -1,0 +1,22 @@
+# Environment variables - never commit these
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/dist/
+client/dist-ssr/
+
+# Server channel files (no longer used, but just in case)
+server/*-channels.json
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/
+.idea/
