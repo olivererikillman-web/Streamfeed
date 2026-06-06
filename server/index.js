@@ -4,8 +4,10 @@ const cors = require('cors');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const Stripe = require('stripe');
+const { Resend } = require('resend');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-secret-change-in-production';
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1TfQ3XHPPXuWYOtWTTsoXu9k';
 const CLIENT_URL = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
@@ -73,6 +75,26 @@ app.get('/api/activate', async (req, res) => {
     const session = await stripe.checkout.sessions.retrieve(session_id);
     if (session.payment_status !== 'paid') return res.status(402).json({ error: 'Payment not completed' });
     const license = jwt.sign({ paid: true, session: session_id }, LICENSE_SECRET);
+
+    // Send license key to buyer's email
+    const email = session.customer_details?.email || session.customer_email;
+    if (email) {
+      await resend.emails.send({
+        from: 'StreamFeed <onboarding@resend.dev>',
+        to: email,
+        subject: 'Your StreamFeed license key',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 16px;">
+            <h2 style="margin-bottom:8px;">Welcome to StreamFeed ▶</h2>
+            <p style="color:#555;">Your payment was successful. Your access is already saved in your browser.</p>
+            <p style="color:#555;">Keep this email — if you ever switch browsers or clear your data, you can restore your access using the key below.</p>
+            <div style="background:#f4f4f4;border-radius:8px;padding:16px;margin:24px 0;word-break:break-all;font-family:monospace;font-size:13px;">${license}</div>
+            <p style="color:#555;">To restore: go to <a href="${CLIENT_URL}">${CLIENT_URL}</a>, click <strong>"Already paid? Restore access"</strong>, and paste this key.</p>
+          </div>
+        `
+      }).catch(e => console.error('Email send error:', e.message));
+    }
+
     res.json({ license });
   } catch (err) {
     console.error('Activate error:', err.message);
