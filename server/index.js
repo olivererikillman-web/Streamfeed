@@ -2,6 +2,13 @@ require('dotenv').config({ path: '../.env' });
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const jwt = require('jsonwebtoken');
+const Stripe = require('stripe');
+
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const LICENSE_SECRET = process.env.LICENSE_SECRET || 'dev-secret-change-in-production';
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || 'price_1TfQ3XHPPXuWYOtWTTsoXu9k';
+const CLIENT_URL = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +45,52 @@ async function resolveYouTubeChannel(handle) {
   }
   throw new Error(`Channel not found: ${handle}`);
 }
+
+// --- Paywall ---
+
+// Create Stripe Checkout session
+app.post('/api/checkout', async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      mode: 'payment',
+      success_url: `${CLIENT_URL}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: CLIENT_URL,
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe checkout error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Activate license after successful payment
+app.get('/api/activate', async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: 'session_id required' });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== 'paid') return res.status(402).json({ error: 'Payment not completed' });
+    const license = jwt.sign({ paid: true, session: session_id }, LICENSE_SECRET);
+    res.json({ license });
+  } catch (err) {
+    console.error('Activate error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verify a license key
+app.get('/api/verify-license', (req, res) => {
+  const { key } = req.query;
+  if (!key) return res.json({ valid: false });
+  try {
+    jwt.verify(key, LICENSE_SECRET);
+    res.json({ valid: true });
+  } catch {
+    res.json({ valid: false });
+  }
+});
 
 // --- YouTube: resolve handle → { id, name } ---
 app.post('/api/youtube/resolve', async (req, res) => {
