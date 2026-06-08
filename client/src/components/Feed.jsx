@@ -311,6 +311,7 @@ export default function Feed() {
     <div className="feed-layout">
       <header className="feed-header">
         <div className="feed-title">▶ StreamFeed</div>
+          <button className="logout-btn" onClick={() => { localStorage.removeItem('sf_license'); window.location.reload() }}>Log out</button>
         <div className="header-actions">
           <button
             className={`platform-mgr-btn all-btn ${activePlatform === 'all' ? 'all-btn-active' : ''}`}
