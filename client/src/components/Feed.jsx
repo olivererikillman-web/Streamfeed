@@ -89,6 +89,8 @@ export default function Feed() {
 
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [youtubeAddError, setYoutubeAddError] = useState('')
+  const [showKeyModal, setShowKeyModal] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const fetchKickData = async (channels) => {
     const parseKickDate = (str) => str ? new Date(str.replace(' ', 'T') + 'Z') : new Date(0)
@@ -311,7 +313,6 @@ export default function Feed() {
     <div className="feed-layout">
       <header className="feed-header">
         <div className="feed-title">▶ StreamFeed</div>
-          <button className="logout-btn" onClick={() => { localStorage.removeItem('sf_license'); window.location.reload() }}>Log out</button>
         <div className="header-actions">
           <button
             className={`platform-mgr-btn all-btn ${activePlatform === 'all' ? 'all-btn-active' : ''}`}
@@ -343,8 +344,26 @@ export default function Feed() {
           >
             Kick
           </button>
+          <button className="logout-btn" onClick={() => { localStorage.removeItem('sf_license'); window.location.reload() }}>Log out</button>
+          <button className="key-btn" onClick={() => setShowKeyModal(true)} title="View your license key">🔑</button>
         </div>
       </header>
+
+      {showKeyModal && (
+        <div className="key-modal-backdrop" onClick={() => setShowKeyModal(false)}>
+          <div className="key-modal" onClick={e => e.stopPropagation()}>
+            <h3>Your License Key</h3>
+            <p>Copy this and save it somewhere safe. If you ever switch browsers, use it to restore access.</p>
+            <textarea className="key-modal-text" readOnly value={localStorage.getItem('sf_license') || ''} rows={4} />
+            <div className="key-modal-actions">
+              <button className="key-modal-copy" onClick={() => { navigator.clipboard.writeText(localStorage.getItem('sf_license') || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                {copied ? 'Copied!' : 'Copy key'}
+              </button>
+              <button className="key-modal-close" onClick={() => setShowKeyModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showYoutubeManager && (
         <ChannelManager
