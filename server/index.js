@@ -167,6 +167,33 @@ app.get('/api/feed', async (req, res) => {
 });
 
 // --- Rumble feed ---
+// --- Rumble: resolve URL or slug → { slug, name } ---
+app.post('/api/rumble/resolve', async (req, res) => {
+  let { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'username required' });
+
+  // Extract slug from URL if pasted (e.g. https://rumble.com/c/nickjfuentes)
+  const urlMatch = username.match(/rumble\.com\/(?:c|user)\/([^/?#\s]+)/i);
+  const slug = (urlMatch ? urlMatch[1] : username).trim().toLowerCase();
+
+  try {
+    const rumbleHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    const r = await axios.get(`https://rumble.com/c/${slug}`, { headers: rumbleHeaders, timeout: 10000, validateStatus: s => s < 500 });
+    if (r.status === 404) return res.status(404).json({ error: 'Channel not found' });
+
+    // Extract channel name from page title
+    const nameMatch = r.data.match(/<title>([^<]+)<\/title>/);
+    const name = nameMatch ? nameMatch[1].replace(/\s*[-|].*$/, '').trim() : slug;
+    res.json({ slug, name });
+  } catch (err) {
+    res.status(404).json({ error: 'Channel not found' });
+  }
+});
+
 // Query param: slugs=nick,username
 function extractRumbleItems(html) {
   const startIdx = html.indexOf('{"items":[{"object_type"');

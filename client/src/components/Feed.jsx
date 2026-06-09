@@ -24,6 +24,13 @@ function saveToStorage(platform, channels) {
 }
 
 // --- Channel manager UI ---
+const PLATFORM_PLACEHOLDERS = {
+  youtube: 'Channel name or @handle',
+  rumble: 'Username or rumble.com/c/... URL',
+  kick: 'Channel username',
+  twitch: 'Channel username',
+}
+
 function ChannelManager({ title, platform, list, newVal, setNewVal, color, onAdd, onRemove, getLabel, getKey, adding, addError }) {
   const label = getLabel || (ch => ch)
   const key = getKey || (ch => ch)
@@ -34,7 +41,7 @@ function ChannelManager({ title, platform, list, newVal, setNewVal, color, onAdd
         <div className="input-wrap">
           <input
             type="text"
-            placeholder="Channel username"
+            placeholder={PLATFORM_PLACEHOLDERS[platform] || 'Channel username'}
             value={newVal}
             onChange={e => setNewVal(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && onAdd(platform, newVal, setNewVal)}
@@ -89,6 +96,8 @@ export default function Feed() {
 
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [youtubeAddError, setYoutubeAddError] = useState('')
+  const [addingRumble, setAddingRumble] = useState(false)
+  const [rumbleAddError, setRumbleAddError] = useState('')
   const [showKeyModal, setShowKeyModal] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -201,7 +210,7 @@ export default function Feed() {
       : null
 
     const rumbleParams = rumble.length > 0
-      ? `slugs=${rumble.join(',')}`
+      ? `slugs=${rumble.map(c => c.slug || c).join(',')}`
       : null
 
     const [ytVideos, kickVideos, twitchVideos, rumbleVideos] = await Promise.all([
@@ -255,6 +264,34 @@ export default function Feed() {
       } finally {
         setAddingYoutube(false)
       }
+    } else if (platform === 'rumble') {
+      setAddingRumble(true)
+      setRumbleAddError('')
+      try {
+        const res = await fetch(`${API}/api/rumble/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: val })
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          setRumbleAddError(err.error || 'Channel not found')
+          return
+        }
+        const resolved = await res.json()
+        const current = loadFromStorage('rumble')
+        if (!current.find(c => (c.slug || c) === resolved.slug)) {
+          const updated = [...current, resolved]
+          saveToStorage('rumble', updated)
+          setRumbleChannels(updated)
+          setter('')
+          loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
+        } else {
+          setter('')
+        }
+      } finally {
+        setAddingRumble(false)
+      }
     } else {
       const slug = val.toLowerCase()
       const current = loadFromStorage(platform)
@@ -263,7 +300,6 @@ export default function Feed() {
         saveToStorage(platform, updated)
         if (platform === 'kick') { setKickChannels(updated); setter(''); loadFeed(youtubeChannels, updated, twitchChannels, rumbleChannels) }
         if (platform === 'twitch') { setTwitchChannels(updated); setter(''); loadFeed(youtubeChannels, kickChannels, updated, rumbleChannels) }
-        if (platform === 'rumble') { setRumbleChannels(updated); setter(''); loadFeed(youtubeChannels, kickChannels, twitchChannels, updated) }
       } else {
         setter('')
       }
@@ -276,13 +312,17 @@ export default function Feed() {
       saveToStorage('youtube', updated)
       setYoutubeChannels(updated)
       loadFeed(updated, kickChannels, twitchChannels, rumbleChannels)
+    } else if (platform === 'rumble') {
+      const updated = rumbleChannels.filter(c => (c.slug || c) !== key)
+      saveToStorage('rumble', updated)
+      setRumbleChannels(updated)
+      loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
     } else {
       const current = loadFromStorage(platform)
       const updated = current.filter(c => c !== key)
       saveToStorage(platform, updated)
       if (platform === 'kick') { setKickChannels(updated); loadFeed(youtubeChannels, updated, twitchChannels, rumbleChannels) }
       if (platform === 'twitch') { setTwitchChannels(updated); loadFeed(youtubeChannels, kickChannels, updated, rumbleChannels) }
-      if (platform === 'rumble') { setRumbleChannels(updated); loadFeed(youtubeChannels, kickChannels, twitchChannels, updated) }
     }
   }
 
@@ -379,6 +419,8 @@ export default function Feed() {
           title="Rumble Channels" platform="rumble"
           list={rumbleChannels} newVal={newRumbleChannel} setNewVal={setNewRumbleChannel}
           color="#85c742" onAdd={addChannel} onRemove={removeChannel}
+          getLabel={ch => ch.name || ch.slug || ch} getKey={ch => ch.slug || ch}
+          adding={addingRumble} addError={rumbleAddError}
         />
       )}
       {showKickManager && (
