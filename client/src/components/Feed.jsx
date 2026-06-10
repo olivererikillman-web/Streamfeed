@@ -320,44 +320,18 @@ export default function Feed() {
         setAddingYoutube(false)
       }
     } else if (platform === 'rumble') {
-      // If picked from autocomplete dropdown, resolvedChannel already has {slug, name}
-      if (resolvedChannel) {
-        const current = loadFromStorage('rumble')
-        if (!current.find(c => (c.slug || c) === resolvedChannel.slug)) {
-          const updated = [...current, { slug: resolvedChannel.slug, name: resolvedChannel.name }]
-          saveToStorage('rumble', updated)
-          setRumbleChannels(updated)
-          setter('')
-          loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
-        } else { setter('') }
-        return
-      }
-      setAddingRumble(true)
-      setRumbleAddError('')
-      try {
-        const res = await fetch(`${API}/api/rumble/resolve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: val })
-        })
-        if (!res.ok) {
-          const err = await res.json()
-          setRumbleAddError(err.error || 'Channel not found')
-          return
-        }
-        const resolved = await res.json()
-        const current = loadFromStorage('rumble')
-        if (!current.find(c => (c.slug || c) === resolved.slug)) {
-          const updated = [...current, resolved]
-          saveToStorage('rumble', updated)
-          setRumbleChannels(updated)
-          setter('')
-          loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
-        } else {
-          setter('')
-        }
-      } finally {
-        setAddingRumble(false)
+      // Extract slug from URL if pasted, otherwise use as-is
+      const urlMatch = val.match(/rumble\.com\/(?:c|user)\/([^/?#\s]+)/i)
+      const slug = (urlMatch ? urlMatch[1] : val).toLowerCase().trim()
+      if (!slug) return
+      if (!rumbleChannels.find(c => (c.slug || c) === slug)) {
+        const updated = [...rumbleChannels, { slug, name: slug }]
+        saveToStorage('rumble', updated)
+        setRumbleChannels(updated)
+        setter('')
+        loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
+      } else {
+        setter('')
       }
     } else {
       const slug = val.toLowerCase()
@@ -488,7 +462,6 @@ export default function Feed() {
           color="#85c742" onAdd={addChannel} onRemove={removeChannel}
           getLabel={ch => ch.name || ch.slug || ch} getKey={ch => ch.slug || ch}
           adding={addingRumble} addError={rumbleAddError}
-          onSearch={searchRumble}
         />
       )}
       {showKickManager && (

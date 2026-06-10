@@ -297,32 +297,15 @@ app.get('/api/rumble/feed', async (req, res) => {
   const channels = req.query.slugs ? req.query.slugs.split(',').filter(Boolean) : [];
   if (channels.length === 0) return res.json([]);
 
-  const rssHeaders = {
-    'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)',
-    'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-  };
-
-  const htmlHeaders = {
+  const rumbleHeaders = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
   };
 
   const results = await Promise.allSettled(channels.map(async (slug) => {
-    // Try RSS first — bypasses Cloudflare
-    try {
-      const rssRes = await axios.get(`https://rumble.com/c/${slug}.rss`, {
-        headers: rssHeaders, timeout: 10000, validateStatus: s => s < 500
-      });
-      if (rssRes.status === 200 && rssRes.data.includes('<rss') || rssRes.data.includes('<feed')) {
-        const parsed = parseRumbleRSS(rssRes.data, slug);
-        if (parsed.length > 0) return parsed;
-      }
-    } catch {}
-
-    // Fallback: HTML scrape
     const response = await axios.get(`https://rumble.com/c/${slug}/livestreams`, {
-      headers: htmlHeaders, timeout: 15000
+      headers: rumbleHeaders, timeout: 15000
     });
     const data = extractRumbleItems(response.data);
     if (!data) return [];
