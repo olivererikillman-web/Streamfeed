@@ -251,19 +251,27 @@ app.get('/api/rumble/search', async (req, res) => {
 
 // Query param: slugs=nick,username
 function extractRumbleItems(html) {
-  const startIdx = html.indexOf('{"items":[{"object_type"');
-  if (startIdx === -1) return null;
-  let depth = 0, i = startIdx, inStr = false, escape = false;
-  for (; i < html.length; i++) {
-    const c = html[i];
-    if (escape) { escape = false; continue; }
-    if (c === '\\' && inStr) { escape = true; continue; }
-    if (c === '"') { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (c === '{' || c === '[') depth++;
-    else if (c === '}' || c === ']') { depth--; if (depth === 0) { i++; break; } }
+  // Try multiple patterns in case Rumble changed their structure
+  const patterns = ['{"items":[{"object_type"', '{"items":[{"id"', '{"items":[{"type"'];
+  for (const pattern of patterns) {
+    const startIdx = html.indexOf(pattern);
+    if (startIdx === -1) continue;
+    let depth = 0, i = startIdx, inStr = false, escape = false;
+    for (; i < html.length; i++) {
+      const c = html[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\' && inStr) { escape = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '{' || c === '[') depth++;
+      else if (c === '}' || c === ']') { depth--; if (depth === 0) { i++; break; } }
+    }
+    try {
+      const parsed = JSON.parse(html.slice(startIdx, i));
+      if (parsed?.items?.length > 0) return parsed;
+    } catch {}
   }
-  try { return JSON.parse(html.slice(startIdx, i)); } catch { return null; }
+  return null;
 }
 
 function parseRumbleRSS(xml, slug) {
@@ -304,26 +312,62 @@ app.get('/api/rumble/feed', async (req, res) => {
   };
 
   const results = await Promise.allSettled(channels.map(async (slug) => {
-    const response = await axios.get(`https://rumble.com/c/${slug}/livestreams`, {
+    const response = await axios.get(`https://rumble.com/c/${slug}`, {
       headers: rumbleHeaders, timeout: 15000
     });
-    const data = extractRumbleItems(response.data);
-    if (!data) return [];
+    const html = response.data;
 
-    const liveItems = data.items.filter(item => item.live);
-    const vodItems = data.items.filter(item => !item.live).slice(0, 5);
-    return [...liveItems, ...vodItems].map(item => ({
-      id: `rumble-${item.id || item.permalink_id}`,
-      title: item.title,
-      channelName: item.by?.name || slug,
-      channelId: `rumble-${slug}`,
-      thumbnail: item.thumb,
-      publishedAt: item.upload_date || new Date().toISOString(),
-      url: item.url,
-      platform: 'rumble',
-      isLive: !!item.live,
-      ...(item.watching_now != null && { viewers: item.watching_now })
-    }));
+    // Try embedded JSON first (multiple patterns)
+    const jsonData = extractRumbleItems(html);
+    if (jsonData?.items?.length > 0) {
+      const liveItems = jsonData.items.filter(item => item.live);
+      const vodItems = jsonData.items.filter(item => !item.live).slice(0, 5);
+      return [...liveItems, ...vodItems].map(item => ({
+        id: `rumble-${item.id || item.permalink_id}`,
+        title: item.title,
+        channelName: item.by?.name || slug,
+        channelId: `rumble-${slug}`,
+        thumbnail: item.thumb,
+        publishedAt: item.upload_date || new Date().toISOString(),
+        url: item.url,
+        platform: 'rumble',
+        isLive: !!item.live,
+        ...(item.watching_now != null && { viewers: item.watching_now })
+      }));
+    }
+
+    // Fallback: parse video links directly from HTML
+    const videos = [];
+    const seen = new Set();
+    const linkRe = /href="(\/v[^"]+\.html)"/g;
+    const thumbRe = /<img[^>]+src="(https:\/\/[^"]*sp\.rmbl\.ws[^"]+)"/g;
+    const titleRe = /<a[^>]+href="(\/v[^"]+\.html)"[^>]*>[\s\S]{0,200}?<\/a>/g;
+
+    const hrefs = [...html.matchAll(linkRe)].map(m => m[1]);
+    const thumbs = [...html.matchAll(thumbRe)].map(m => m[1]);
+
+    for (let i = 0; i < Math.min(hrefs.length, 5); i++) {
+      const href = hrefs[i];
+      if (seen.has(href)) continue;
+      seen.add(href);
+      // Extract title from the surrounding anchor text
+      const segment = html.slice(Math.max(0, html.indexOf(href) - 50), html.indexOf(href) + 500);
+      const titleMatch = segment.match(/title="([^"]+)"|<h\d[^>]*>([^<]+)<\/h\d>/);
+      const title = titleMatch?.[1] || titleMatch?.[2] || '';
+      if (!title) continue;
+      videos.push({
+        id: `rumble-${href.replace(/\//g, '-')}`,
+        title,
+        channelName: slug,
+        channelId: `rumble-${slug}`,
+        thumbnail: thumbs[i] || '',
+        publishedAt: new Date().toISOString(),
+        url: `https://rumble.com${href}`,
+        platform: 'rumble',
+        isLive: false,
+      });
+    }
+    return videos;
   }));
 
   const videos = results
