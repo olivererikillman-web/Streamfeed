@@ -10,7 +10,6 @@ const LS_KEYS = {
   youtube: 'sf_youtube_channels',
   kick: 'sf_kick_channels',
   twitch: 'sf_twitch_channels',
-  rumble: 'sf_rumble_channels',
   watchLater: 'sf_watch_later',
 }
 
@@ -26,7 +25,6 @@ function saveToStorage(platform, channels) {
 // --- Channel manager UI ---
 const PLATFORM_PLACEHOLDERS = {
   youtube: 'Channel name or @handle',
-  rumble: 'Username or rumble.com/c/... URL',
   kick: 'Channel username',
   twitch: 'Channel username',
 }
@@ -124,17 +122,14 @@ export default function Feed() {
   const [youtubeChannels, setYoutubeChannels] = useState(() => loadFromStorage('youtube'))
   const [kickChannels, setKickChannels] = useState(() => loadFromStorage('kick'))
   const [twitchChannels, setTwitchChannels] = useState(() => loadFromStorage('twitch'))
-  const [rumbleChannels, setRumbleChannels] = useState(() => loadFromStorage('rumble'))
 
   const [newYoutubeChannel, setNewYoutubeChannel] = useState('')
   const [newKickChannel, setNewKickChannel] = useState('')
   const [newTwitchChannel, setNewTwitchChannel] = useState('')
-  const [newRumbleChannel, setNewRumbleChannel] = useState('')
 
   const [showYoutubeManager, setShowYoutubeManager] = useState(false)
   const [showKickManager, setShowKickManager] = useState(false)
   const [showTwitchManager, setShowTwitchManager] = useState(false)
-  const [showRumbleManager, setShowRumbleManager] = useState(false)
 
   const [watchLater, setWatchLater] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEYS.watchLater)) || [] }
@@ -143,8 +138,6 @@ export default function Feed() {
 
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [youtubeAddError, setYoutubeAddError] = useState('')
-  const [addingRumble, setAddingRumble] = useState(false)
-  const [rumbleAddError, setRumbleAddError] = useState('')
   const [showKeyModal, setShowKeyModal] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -248,7 +241,7 @@ export default function Feed() {
     return results.filter(r => r.status === 'fulfilled').flatMap(r => r.value)
   }
 
-  const loadFeed = async (yt = youtubeChannels, kick = kickChannels, twitch = twitchChannels, rumble = rumbleChannels) => {
+  const loadFeed = async (yt = youtubeChannels, kick = kickChannels, twitch = twitchChannels) => {
     setLoading(true)
     setError(null)
 
@@ -256,22 +249,15 @@ export default function Feed() {
       ? `ids=${yt.map(c => c.id).join(',')}&names=${yt.map(c => encodeURIComponent(c.name)).join(',')}`
       : null
 
-    const rumbleParams = rumble.length > 0
-      ? `slugs=${rumble.map(c => c.slug || c).join(',')}`
-      : null
-
-    const [ytVideos, kickVideos, twitchVideos, rumbleVideos] = await Promise.all([
+    const [ytVideos, kickVideos, twitchVideos] = await Promise.all([
       ytParams
         ? fetch(`${API}/api/feed?${ytParams}`).then(r => r.ok ? r.json() : []).catch(() => [])
         : Promise.resolve([]),
       fetchKickData(kick),
       fetchTwitchData(twitch),
-      rumbleParams
-        ? fetch(`${API}/api/rumble/feed?${rumbleParams}`).then(r => r.ok ? r.json() : []).catch(() => [])
-        : Promise.resolve([])
     ])
 
-    const all = [...ytVideos, ...kickVideos, ...twitchVideos, ...rumbleVideos]
+    const all = [...ytVideos, ...kickVideos, ...twitchVideos]
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
     setVideos(all)
     setLoading(false)
@@ -304,26 +290,12 @@ export default function Feed() {
           saveToStorage('youtube', updated)
           setYoutubeChannels(updated)
           setter('')
-          loadFeed(updated, kickChannels, twitchChannels, rumbleChannels)
+          loadFeed(updated, kickChannels, twitchChannels)
         } else {
           setter('')
         }
       } finally {
         setAddingYoutube(false)
-      }
-    } else if (platform === 'rumble') {
-      // Extract slug from URL if pasted, otherwise use as-is
-      const urlMatch = val.match(/rumble\.com\/(?:c|user)\/([^/?#\s]+)/i)
-      const slug = (urlMatch ? urlMatch[1] : val).toLowerCase().trim()
-      if (!slug) return
-      if (!rumbleChannels.find(c => (c.slug || c) === slug)) {
-        const updated = [...rumbleChannels, { slug, name: slug }]
-        saveToStorage('rumble', updated)
-        setRumbleChannels(updated)
-        setter('')
-        loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
-      } else {
-        setter('')
       }
     } else {
       const slug = val.toLowerCase()
@@ -331,8 +303,8 @@ export default function Feed() {
       if (!current.includes(slug)) {
         const updated = [...current, slug]
         saveToStorage(platform, updated)
-        if (platform === 'kick') { setKickChannels(updated); setter(''); loadFeed(youtubeChannels, updated, twitchChannels, rumbleChannels) }
-        if (platform === 'twitch') { setTwitchChannels(updated); setter(''); loadFeed(youtubeChannels, kickChannels, updated, rumbleChannels) }
+        if (platform === 'kick') { setKickChannels(updated); setter(''); loadFeed(youtubeChannels, updated, twitchChannels) }
+        if (platform === 'twitch') { setTwitchChannels(updated); setter(''); loadFeed(youtubeChannels, kickChannels, updated) }
       } else {
         setter('')
       }
@@ -344,18 +316,13 @@ export default function Feed() {
       const updated = youtubeChannels.filter(c => c.id !== key)
       saveToStorage('youtube', updated)
       setYoutubeChannels(updated)
-      loadFeed(updated, kickChannels, twitchChannels, rumbleChannels)
-    } else if (platform === 'rumble') {
-      const updated = rumbleChannels.filter(c => (c.slug || c) !== key)
-      saveToStorage('rumble', updated)
-      setRumbleChannels(updated)
-      loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
+      loadFeed(updated, kickChannels, twitchChannels)
     } else {
       const current = loadFromStorage(platform)
       const updated = current.filter(c => c !== key)
       saveToStorage(platform, updated)
-      if (platform === 'kick') { setKickChannels(updated); loadFeed(youtubeChannels, updated, twitchChannels, rumbleChannels) }
-      if (platform === 'twitch') { setTwitchChannels(updated); loadFeed(youtubeChannels, kickChannels, updated, rumbleChannels) }
+      if (platform === 'kick') { setKickChannels(updated); loadFeed(youtubeChannels, updated, twitchChannels) }
+      if (platform === 'twitch') { setTwitchChannels(updated); loadFeed(youtubeChannels, kickChannels, updated) }
     }
   }
 
@@ -389,31 +356,25 @@ export default function Feed() {
         <div className="header-actions">
           <button
             className={`platform-mgr-btn all-btn ${activePlatform === 'all' ? 'all-btn-active' : ''}`}
-            onClick={() => { setActivePlatform('all'); setActiveChannel('all'); setShowYoutubeManager(false); setShowKickManager(false); setShowTwitchManager(false); setShowRumbleManager(false) }}
+            onClick={() => { setActivePlatform('all'); setActiveChannel('all'); setShowYoutubeManager(false); setShowKickManager(false); setShowTwitchManager(false) }}
           >
             All
           </button>
           <button
             className={`platform-mgr-btn youtube-color ${activePlatform !== 'all' && activePlatform !== 'youtube' ? 'platform-inactive' : ''}`}
-            onClick={() => switchPlatform('youtube', setShowYoutubeManager, setShowKickManager, setShowTwitchManager, setShowRumbleManager)}
+            onClick={() => switchPlatform('youtube', setShowYoutubeManager, setShowKickManager, setShowTwitchManager)}
           >
             YouTube
           </button>
           <button
-            className={`platform-mgr-btn rumble-color ${activePlatform !== 'all' && activePlatform !== 'rumble' ? 'platform-inactive' : ''}`}
-            onClick={() => switchPlatform('rumble', setShowRumbleManager, setShowKickManager, setShowTwitchManager, setShowYoutubeManager)}
-          >
-            Rumble
-          </button>
-          <button
             className={`platform-mgr-btn twitch-color ${activePlatform !== 'all' && activePlatform !== 'twitch' ? 'platform-inactive' : ''}`}
-            onClick={() => switchPlatform('twitch', setShowTwitchManager, setShowKickManager, setShowRumbleManager, setShowYoutubeManager)}
+            onClick={() => switchPlatform('twitch', setShowTwitchManager, setShowKickManager, setShowYoutubeManager)}
           >
             Twitch
           </button>
           <button
             className={`platform-mgr-btn kick-color ${activePlatform !== 'all' && activePlatform !== 'kick' ? 'platform-inactive' : ''}`}
-            onClick={() => switchPlatform('kick', setShowKickManager, setShowTwitchManager, setShowRumbleManager, setShowYoutubeManager)}
+            onClick={() => switchPlatform('kick', setShowKickManager, setShowTwitchManager, setShowYoutubeManager)}
           >
             Kick
           </button>
@@ -445,15 +406,6 @@ export default function Feed() {
           color="#ff0000" onAdd={addChannel} onRemove={removeChannel}
           getLabel={ch => ch.name} getKey={ch => ch.id}
           adding={addingYoutube} addError={youtubeAddError}
-        />
-      )}
-      {showRumbleManager && (
-        <ChannelManager
-          title="Rumble Channels" platform="rumble"
-          list={rumbleChannels} newVal={newRumbleChannel} setNewVal={setNewRumbleChannel}
-          color="#85c742" onAdd={addChannel} onRemove={removeChannel}
-          getLabel={ch => ch.name || ch.slug || ch} getKey={ch => ch.slug || ch}
-          adding={addingRumble} addError={rumbleAddError}
         />
       )}
       {showKickManager && (
