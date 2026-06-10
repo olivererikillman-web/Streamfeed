@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import VideoCard from './VideoCard'
 import './Feed.css'
 
@@ -31,25 +31,72 @@ const PLATFORM_PLACEHOLDERS = {
   twitch: 'Channel username',
 }
 
-function ChannelManager({ title, platform, list, newVal, setNewVal, color, onAdd, onRemove, getLabel, getKey, adding, addError }) {
+function ChannelManager({ title, platform, list, newVal, setNewVal, color, onAdd, onRemove, getLabel, getKey, adding, addError, onSearch }) {
   const label = getLabel || (ch => ch)
   const key = getKey || (ch => ch)
+  const [suggestions, setSuggestions] = useState([])
+  const [showSug, setShowSug] = useState(false)
+  const searchTimer = useRef(null)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSug(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleChange = (val) => {
+    setNewVal(val)
+    if (onSearch && val.length >= 2) {
+      clearTimeout(searchTimer.current)
+      searchTimer.current = setTimeout(async () => {
+        const results = await onSearch(val)
+        setSuggestions(results)
+        setShowSug(results.length > 0)
+      }, 350)
+    } else {
+      setSuggestions([])
+      setShowSug(false)
+    }
+  }
+
+  const pickSuggestion = (s) => {
+    setShowSug(false)
+    setSuggestions([])
+    onAdd(platform, s.slug, setNewVal, s)
+  }
+
+  const clearInput = () => { setNewVal(''); setSuggestions([]); setShowSug(false) }
+
   return (
     <div className="channel-manager" style={{ '--manager-color': color }}>
       <h3>{title}</h3>
       <div className="channel-add">
-        <div className="input-wrap">
+        <div className="input-wrap" ref={wrapRef}>
           <input
             type="text"
             placeholder={PLATFORM_PLACEHOLDERS[platform] || 'Channel username'}
             value={newVal}
-            onChange={e => setNewVal(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && onAdd(platform, newVal, setNewVal)}
+            onChange={e => handleChange(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { setShowSug(false); onAdd(platform, newVal, setNewVal) } if (e.key === 'Escape') setShowSug(false) }}
+            onFocus={() => suggestions.length > 0 && setShowSug(true)}
             disabled={adding}
+            autoComplete="off"
           />
-          {newVal && <button className="input-clear" onClick={() => setNewVal('')} tabIndex={-1}>✕</button>}
+          {newVal && <button className="input-clear" onClick={clearInput} tabIndex={-1}>✕</button>}
+          {showSug && (
+            <div className="suggestions-dropdown">
+              {suggestions.map(s => (
+                <button key={s.slug} className="suggestion-item" onMouseDown={() => pickSuggestion(s)}>
+                  {s.thumbnail && <img src={s.thumbnail} className="suggestion-thumb" alt="" />}
+                  <span className="suggestion-name">{s.name}</span>
+                  <span className="suggestion-slug">@{s.slug}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <button onClick={() => onAdd(platform, newVal, setNewVal)} disabled={adding}>
+        <button onClick={() => { setShowSug(false); onAdd(platform, newVal, setNewVal) }} disabled={adding}>
           {adding ? '...' : 'Add'}
         </button>
       </div>
@@ -232,9 +279,17 @@ export default function Feed() {
 
   useEffect(() => { loadFeed() }, [])
 
-  const addChannel = async (platform, username, setter) => {
+  const searchRumble = async (q) => {
+    try {
+      const r = await fetch(`${API}/api/rumble/search?q=${encodeURIComponent(q)}`)
+      if (!r.ok) return []
+      return await r.json()
+    } catch { return [] }
+  }
+
+  const addChannel = async (platform, username, setter, resolvedChannel = null) => {
     const val = username.trim()
-    if (!val) return
+    if (!val && !resolvedChannel) return
 
     if (platform === 'youtube') {
       setAddingYoutube(true)
@@ -265,6 +320,18 @@ export default function Feed() {
         setAddingYoutube(false)
       }
     } else if (platform === 'rumble') {
+      // If picked from autocomplete dropdown, resolvedChannel already has {slug, name}
+      if (resolvedChannel) {
+        const current = loadFromStorage('rumble')
+        if (!current.find(c => (c.slug || c) === resolvedChannel.slug)) {
+          const updated = [...current, { slug: resolvedChannel.slug, name: resolvedChannel.name }]
+          saveToStorage('rumble', updated)
+          setRumbleChannels(updated)
+          setter('')
+          loadFeed(youtubeChannels, kickChannels, twitchChannels, updated)
+        } else { setter('') }
+        return
+      }
       setAddingRumble(true)
       setRumbleAddError('')
       try {
@@ -421,6 +488,7 @@ export default function Feed() {
           color="#85c742" onAdd={addChannel} onRemove={removeChannel}
           getLabel={ch => ch.name || ch.slug || ch} getKey={ch => ch.slug || ch}
           adding={addingRumble} addError={rumbleAddError}
+          onSearch={searchRumble}
         />
       )}
       {showKickManager && (

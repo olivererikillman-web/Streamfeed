@@ -176,21 +176,82 @@ app.post('/api/rumble/resolve', async (req, res) => {
   const urlMatch = username.match(/rumble\.com\/(?:c|user)\/([^/?#\s]+)/i);
   const slug = (urlMatch ? urlMatch[1] : username).trim().toLowerCase();
 
+  const rumbleHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
+
   try {
-    const rumbleHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    };
     const r = await axios.get(`https://rumble.com/c/${slug}`, { headers: rumbleHeaders, timeout: 10000, validateStatus: s => s < 500 });
     if (r.status === 404) return res.status(404).json({ error: 'Channel not found' });
 
-    // Extract channel name from page title
-    const nameMatch = r.data.match(/<title>([^<]+)<\/title>/);
-    const name = nameMatch ? nameMatch[1].replace(/\s*[-|].*$/, '').trim() : slug;
+    // Detect Cloudflare challenge page
+    const title = r.data.match(/<title>([^<]+)<\/title>/)?.[1] || '';
+    const isCloudflare = title.toLowerCase().includes('just a moment') ||
+      r.data.includes('cf-browser-verification') || r.data.includes('challenge-form');
+
+    if (isCloudflare) {
+      // Cloudflare blocked — channel likely exists, use slug as display name
+      return res.json({ slug, name: slug });
+    }
+
+    const name = title.replace(/\s*[-|].*$/, '').trim() || slug;
     res.json({ slug, name });
   } catch (err) {
     res.status(404).json({ error: 'Channel not found' });
+  }
+});
+
+// --- Rumble: search channels ---
+app.get('/api/rumble/search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (q.length < 2) return res.json([]);
+
+  const rumbleHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
+
+  try {
+    const r = await axios.get(`https://rumble.com/search/channel?q=${encodeURIComponent(q)}`, {
+      headers: rumbleHeaders, timeout: 10000, validateStatus: () => true
+    });
+
+    const html = r.data;
+    const pageTitle = (html.match(/<title>([^<]+)<\/title>/)?.[1] || '').toLowerCase();
+    if (pageTitle.includes('just a moment')) return res.json([]);
+
+    const results = [];
+    const seen = new Set();
+
+    // Rumble embeds channel data as JSON in the page — look for slug+title pairs
+    const re = /"slug"\s*:\s*"([^"]+)"[^}]{0,300}"title"\s*:\s*"([^"]+)"(?:[^}]{0,200}"thumbnail"\s*:\s*"([^"]+)")?/g;
+    let m;
+    while ((m = re.exec(html)) !== null && results.length < 10) {
+      const slug = m[1];
+      if (!seen.has(slug) && !slug.includes('/')) {
+        seen.add(slug);
+        results.push({ slug, name: m[2], thumbnail: m[3] || null });
+      }
+    }
+
+    // Fallback: extract from channel listing links + headings
+    if (results.length === 0) {
+      const linkRe = /href="\/c\/([^"?#]+)"[^>]*>[\s\S]{0,400}?<[^>]+class="[^"]*(?:title|name|heading)[^"]*"[^>]*>([^<]{2,60})</g;
+      while ((m = linkRe.exec(html)) !== null && results.length < 10) {
+        const slug = m[1];
+        if (!seen.has(slug)) {
+          seen.add(slug);
+          results.push({ slug, name: m[2].trim(), thumbnail: null });
+        }
+      }
+    }
+
+    res.json(results);
+  } catch {
+    res.json([]);
   }
 });
 
