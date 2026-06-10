@@ -248,6 +248,53 @@ export default function Feed() {
     return results.filter(r => r.status === 'fulfilled').flatMap(r => r.value)
   }
 
+  // Fetch Rumble from the browser directly via CORS proxy — bypasses Cloudflare blocking Railway
+  const fetchRumbleData = async (channels) => {
+    if (channels.length === 0) return []
+
+    function extractItems(html) {
+      const startIdx = html.indexOf('{"items":[{"object_type"')
+      if (startIdx === -1) return null
+      let depth = 0, i = startIdx, inStr = false, escape = false
+      for (; i < html.length; i++) {
+        const c = html[i]
+        if (escape) { escape = false; continue }
+        if (c === '\\' && inStr) { escape = true; continue }
+        if (c === '"') { inStr = !inStr; continue }
+        if (inStr) continue
+        if (c === '{' || c === '[') depth++
+        else if (c === '}' || c === ']') { depth--; if (depth === 0) { i++; break } }
+      }
+      try { return JSON.parse(html.slice(startIdx, i)) } catch { return null }
+    }
+
+    const results = await Promise.allSettled(channels.map(async (channel) => {
+      const slug = channel.slug || channel
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://rumble.com/c/${slug}/livestreams`)}`
+      const r = await fetch(proxyUrl)
+      if (!r.ok) return []
+      const { contents } = await r.json()
+      if (!contents) return []
+      const data = extractItems(contents)
+      if (!data) return []
+      const liveItems = data.items.filter(item => item.live)
+      const vodItems = data.items.filter(item => !item.live).slice(0, 5)
+      return [...liveItems, ...vodItems].map(item => ({
+        id: `rumble-${item.id || item.permalink_id}`,
+        title: item.title,
+        channelName: item.by?.name || slug,
+        channelId: `rumble-${slug}`,
+        thumbnail: item.thumb,
+        publishedAt: item.upload_date || new Date().toISOString(),
+        url: item.url,
+        platform: 'rumble',
+        isLive: !!item.live,
+        ...(item.watching_now != null && { viewers: item.watching_now })
+      }))
+    }))
+    return results.filter(r => r.status === 'fulfilled').flatMap(r => r.value)
+  }
+
   const loadFeed = async (yt = youtubeChannels, kick = kickChannels, twitch = twitchChannels, rumble = rumbleChannels) => {
     setLoading(true)
     setError(null)
@@ -256,19 +303,13 @@ export default function Feed() {
       ? `ids=${yt.map(c => c.id).join(',')}&names=${yt.map(c => encodeURIComponent(c.name)).join(',')}`
       : null
 
-    const rumbleParams = rumble.length > 0
-      ? `slugs=${rumble.map(c => c.slug || c).join(',')}`
-      : null
-
     const [ytVideos, kickVideos, twitchVideos, rumbleVideos] = await Promise.all([
       ytParams
         ? fetch(`${API}/api/feed?${ytParams}`).then(r => r.ok ? r.json() : []).catch(() => [])
         : Promise.resolve([]),
       fetchKickData(kick),
       fetchTwitchData(twitch),
-      rumbleParams
-        ? fetch(`${API}/api/rumble/feed?${rumbleParams}`).then(r => r.ok ? r.json() : []).catch(() => [])
-        : Promise.resolve([])
+      fetchRumbleData(rumble)
     ])
 
     const all = [...ytVideos, ...kickVideos, ...twitchVideos, ...rumbleVideos]
@@ -279,17 +320,9 @@ export default function Feed() {
 
   useEffect(() => { loadFeed() }, [])
 
-  const searchRumble = async (q) => {
-    try {
-      const r = await fetch(`${API}/api/rumble/search?q=${encodeURIComponent(q)}`)
-      if (!r.ok) return []
-      return await r.json()
-    } catch { return [] }
-  }
-
-  const addChannel = async (platform, username, setter, resolvedChannel = null) => {
+  const addChannel = async (platform, username, setter) => {
     const val = username.trim()
-    if (!val && !resolvedChannel) return
+    if (!val) return
 
     if (platform === 'youtube') {
       setAddingYoutube(true)
