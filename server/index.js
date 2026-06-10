@@ -297,33 +297,40 @@ app.get('/api/rumble/feed', async (req, res) => {
   const channels = req.query.slugs ? req.query.slugs.split(',').filter(Boolean) : [];
   if (channels.length === 0) return res.json([]);
 
-  const rumbleHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-  };
-
   const results = await Promise.allSettled(channels.map(async (slug) => {
-    const response = await axios.get(`https://rumble.com/c/${slug}/livestreams`, {
-      headers: rumbleHeaders, timeout: 15000
+    // RSS bypasses Cloudflare — RSS readers can't run JS so Cloudflare can't challenge them
+    const rssRes = await axios.get(`https://rumble.com/c/${slug}.rss`, {
+      headers: { 'User-Agent': 'FeedFetcher/1.0', 'Accept': 'application/rss+xml, application/xml, */*' },
+      timeout: 10000,
+      validateStatus: s => s < 500
     });
-    const data = extractRumbleItems(response.data);
-    if (!data) return [];
 
-    const liveItems = data.items.filter(item => item.live);
-    const vodItems = data.items.filter(item => !item.live).slice(0, 5);
-    return [...liveItems, ...vodItems].map(item => ({
-      id: `rumble-${item.id || item.permalink_id}`,
-      title: item.title,
-      channelName: item.by?.name || slug,
-      channelId: `rumble-${slug}`,
-      thumbnail: item.thumb,
-      publishedAt: item.upload_date || new Date().toISOString(),
-      url: item.url,
-      platform: 'rumble',
-      isLive: !!item.live,
-      ...(item.watching_now != null && { viewers: item.watching_now })
-    }));
+    if (rssRes.status !== 200 || !rssRes.data.includes('<item>')) return [];
+
+    const xml = rssRes.data;
+    const channelTitles = [...xml.matchAll(/<title>(?:<!\[CDATA\[)?([^\]<]+?)(?:\]\]>)?<\/title>/g)];
+    const channelName = (channelTitles[0]?.[1] || slug).replace(/\s*[-|].*$/, '').trim();
+
+    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => m[1]);
+    return items.slice(0, 5).map(item => {
+      const titleMatch = item.match(/<title>(?:<!\[CDATA\[)?([^\]<]+?)(?:\]\]>)?<\/title>/);
+      const title = titleMatch?.[1]?.trim() || '';
+      const link = item.match(/<link>([^<]+)<\/link>/)?.[1]?.trim() || '';
+      const pubDate = item.match(/<pubDate>([^<]+)<\/pubDate>/)?.[1] || '';
+      const thumbnail = item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] || '';
+      const videoId = link.match(/rumble\.com\/([^?#\s]+)/)?.[1] || link;
+      return {
+        id: `rumble-${videoId}`,
+        title,
+        channelName,
+        channelId: `rumble-${slug}`,
+        thumbnail,
+        publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+        url: link,
+        platform: 'rumble',
+        isLive: false,
+      };
+    }).filter(v => v.title && v.url);
   }));
 
   const videos = results
