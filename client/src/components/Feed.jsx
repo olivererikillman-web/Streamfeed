@@ -281,9 +281,26 @@ export default function Feed() {
 
   const searchRumble = async (q) => {
     try {
-      const r = await fetch(`${API}/api/rumble/search?q=${encodeURIComponent(q)}`)
+      // Use a CORS proxy so the browser (not Railway) fetches Rumble — bypasses Cloudflare
+      const target = `https://rumble.com/search/channel?q=${encodeURIComponent(q)}`
+      const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`)
       if (!r.ok) return []
-      return await r.json()
+      const { contents } = await r.json()
+      if (!contents) return []
+
+      const results = []
+      const seen = new Set()
+      // Extract slug + name pairs from the embedded JSON Rumble puts in search pages
+      const re = /"slug"\s*:\s*"([^"]+)"[^}]{0,400}"title"\s*:\s*"([^"]+)"(?:[^}]{0,300}"thumbnail"\s*:\s*"([^"]+)")?/g
+      let m
+      while ((m = re.exec(contents)) !== null && results.length < 10) {
+        const slug = m[1]
+        if (!seen.has(slug) && !slug.includes('/')) {
+          seen.add(slug)
+          results.push({ slug, name: m[2], thumbnail: m[3] || null })
+        }
+      }
+      return results
     } catch { return [] }
   }
 

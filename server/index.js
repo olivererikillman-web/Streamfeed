@@ -272,19 +272,63 @@ function extractRumbleItems(html) {
   try { return JSON.parse(html.slice(startIdx, i)); } catch { return null; }
 }
 
+function parseRumbleRSS(xml, slug) {
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => m[1]);
+  return items.slice(0, 5).map(item => {
+    const title = item.match(/<title><!\[CDATA\[([^\]]*)\]\]><\/title>|<title>([^<]*)<\/title>/)?.[1] ||
+                  item.match(/<title><!\[CDATA\[([^\]]*)\]\]><\/title>|<title>([^<]*)<\/title>/)?.[2] || '';
+    const link = item.match(/<link>([^<]+)<\/link>/)?.[1] ||
+                 item.match(/<link\s[^>]*href="([^"]+)"/)?.[1] || '';
+    const pubDate = item.match(/<pubDate>([^<]+)<\/pubDate>/)?.[1] || '';
+    const thumbnail = item.match(/<media:thumbnail[^>]+url="([^"]+)"/)?.[1] ||
+                      item.match(/<enclosure[^>]+url="([^"]+)"/)?.[1] || '';
+    const channelName = xml.match(/<title><!\[CDATA\[([^\]]*)\]\]><\/title>|<title>([^<]*)<\/title>/)?.[1] ||
+                        xml.match(/<title><!\[CDATA\[([^\]]*)\]\]><\/title>|<title>([^<]*)<\/title>/)?.[2] || slug;
+    const videoId = link.match(/rumble\.com\/([^?]+)/)?.[1] || link;
+    return {
+      id: `rumble-${videoId}`,
+      title: title.trim(),
+      channelName: channelName.replace(/\s*[-|].*$/, '').trim(),
+      channelId: `rumble-${slug}`,
+      thumbnail,
+      publishedAt: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
+      url: link.trim(),
+      platform: 'rumble',
+      isLive: false,
+    };
+  }).filter(v => v.title && v.url);
+}
+
 app.get('/api/rumble/feed', async (req, res) => {
   const channels = req.query.slugs ? req.query.slugs.split(',').filter(Boolean) : [];
   if (channels.length === 0) return res.json([]);
 
-  const rumbleHeaders = {
+  const rssHeaders = {
+    'User-Agent': 'Mozilla/5.0 (compatible; RSS reader)',
+    'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+  };
+
+  const htmlHeaders = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
   };
 
   const results = await Promise.allSettled(channels.map(async (slug) => {
+    // Try RSS first — bypasses Cloudflare
+    try {
+      const rssRes = await axios.get(`https://rumble.com/c/${slug}.rss`, {
+        headers: rssHeaders, timeout: 10000, validateStatus: s => s < 500
+      });
+      if (rssRes.status === 200 && rssRes.data.includes('<rss') || rssRes.data.includes('<feed')) {
+        const parsed = parseRumbleRSS(rssRes.data, slug);
+        if (parsed.length > 0) return parsed;
+      }
+    } catch {}
+
+    // Fallback: HTML scrape
     const response = await axios.get(`https://rumble.com/c/${slug}/livestreams`, {
-      headers: rumbleHeaders, timeout: 15000
+      headers: htmlHeaders, timeout: 15000
     });
     const data = extractRumbleItems(response.data);
     if (!data) return [];
