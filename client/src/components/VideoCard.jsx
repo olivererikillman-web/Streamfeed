@@ -30,8 +30,12 @@ export default function VideoCard({ video, onWatchLater, inWatchLater }) {
         {onWatchLater && (
           <button
             className={`watch-later-btn${inWatchLater ? ' added' : ''}`}
-            title={inWatchLater ? 'Remove from Watch Later' : 'Add to Watch Later'}
-            onClick={e => { e.preventDefault(); e.stopPropagation(); onWatchLater(video) }}
+            title={inWatchLater ? 'Saved to Watch Later' : 'Save to Watch Later'}
+            onClick={e => {
+              e.preventDefault()
+              e.stopPropagation()
+              if (!inWatchLater) onWatchLater(video)
+            }}
           >
             <ClockIcon />
           </button>
@@ -39,7 +43,6 @@ export default function VideoCard({ video, onWatchLater, inWatchLater }) {
         {video.platform === 'youtube' && <div className="platform-badge youtube">YT</div>}
         {video.platform === 'kick' && <div className="platform-badge kick">Kick</div>}
         {video.platform === 'twitch' && <div className="platform-badge twitch">Twitch</div>}
-        {video.platform === 'rumble' && <div className="platform-badge rumble">Rumble</div>}
         {video.isLive && video.viewers != null && (
           <div className="viewer-count">{video.viewers.toLocaleString()} viewers</div>
         )}

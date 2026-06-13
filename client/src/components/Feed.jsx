@@ -349,6 +349,8 @@ export default function Feed() {
     closeManagers.forEach(fn => fn(false))
   }
 
+  const hasNoChannels = youtubeChannels.length === 0 && kickChannels.length === 0 && twitchChannels.length === 0
+
   return (
     <div className="feed-layout">
       <header className="feed-header">
@@ -441,8 +443,33 @@ export default function Feed() {
         <main className="feed-main">
           {loading && <div className="state-msg">Loading your feed...</div>}
           {error && <div className="state-msg error">{error}</div>}
-          {!loading && !error && filtered.length === 0 && (
-            <div className="state-msg">No videos yet — add some channels above.</div>
+          {!loading && !error && hasNoChannels && (
+            <div className="welcome-state">
+              <div className="welcome-icon">▶</div>
+              <h2 className="welcome-title">Welcome to StreamFeed</h2>
+              <p className="welcome-sub">Add your subscriptions to see all your content in one feed.</p>
+              <div className="welcome-platforms">
+                <div className="welcome-platform-card" onClick={() => { setActivePlatform('youtube'); setShowYoutubeManager(true); setShowKickManager(false); setShowTwitchManager(false) }}>
+                  <span className="wpc-badge youtube">YT</span>
+                  <span className="wpc-name">YouTube</span>
+                  <span className="wpc-hint">Click to add channels →</span>
+                </div>
+                <div className="welcome-platform-card" onClick={() => { setActivePlatform('twitch'); setShowTwitchManager(true); setShowKickManager(false); setShowYoutubeManager(false) }}>
+                  <span className="wpc-badge twitch">Twitch</span>
+                  <span className="wpc-name">Twitch</span>
+                  <span className="wpc-hint">Click to add channels →</span>
+                </div>
+                <div className="welcome-platform-card" onClick={() => { setActivePlatform('kick'); setShowKickManager(true); setShowTwitchManager(false); setShowYoutubeManager(false) }}>
+                  <span className="wpc-badge kick">Kick</span>
+                  <span className="wpc-name">Kick</span>
+                  <span className="wpc-hint">Click to add channels →</span>
+                </div>
+              </div>
+              <p className="welcome-note">No login needed. No data collected.</p>
+            </div>
+          )}
+          {!loading && !error && !hasNoChannels && filtered.length === 0 && (
+            <div className="state-msg">No videos found for this filter.</div>
           )}
           {!loading && !error && liveVideos.length > 0 && (
             <section className="live-section">
