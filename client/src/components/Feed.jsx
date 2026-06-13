@@ -160,7 +160,7 @@ export default function Feed() {
             title: s.session_title || `${username} is live`,
             channelName: username,
             channelId: `kick-${slug}`,
-            thumbnail: s.thumbnail?.url || ch.banner_image?.url,
+            thumbnail: ch.banner_image?.url || ch.user?.profile_pic || null,
             publishedAt: parseKickDate(s.created_at).toISOString(),
             url: `https://kick.com/${slug}`,
             platform: 'kick', isLive: true, viewers: s.viewer_count
@@ -257,8 +257,15 @@ export default function Feed() {
       fetchTwitchData(twitch),
     ])
 
+    const seen = new Set()
     const all = [...ytVideos, ...kickVideos, ...twitchVideos]
       .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .filter(v => {
+        const key = `${v.channelName?.toLowerCase()}::${v.title?.toLowerCase().trim()}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
     setVideos(all)
     setLoading(false)
   }
