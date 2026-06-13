@@ -57,11 +57,11 @@ export default function Paywall({ onUnlock }) {
         <div className="paywall-logo">▶ StreamFeed</div>
         <h1>All your creators.<br />One feed.</h1>
         <p className="paywall-desc">
-          Follow channels from YouTube, Twitch, Kick and Rumble in one clean feed.
+          Follow channels from YouTube, Twitch and Kick in one clean feed.
           No algorithm. No ads. Just the content you chose.
         </p>
         <ul className="paywall-features">
-          <li>✓ YouTube, Twitch, Kick &amp; Rumble</li>
+          <li>✓ YouTube, Twitch &amp; Kick</li>
           <li>✓ Live streams pinned at the top</li>
           <li>✓ Watch Later list</li>
           <li>✓ No account required</li>
