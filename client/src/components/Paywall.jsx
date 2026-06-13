@@ -81,7 +81,7 @@ export default function Paywall({ onUnlock }) {
           </button>
         ) : (
           <div className="paywall-restore">
-            <p className="paywall-restore-label">Paste the license key from your email:</p>
+            <p className="paywall-restore-label">Paste your license key:</p>
             <textarea
               className="paywall-restore-input"
               value={restoreKey}
