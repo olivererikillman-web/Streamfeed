@@ -42,7 +42,7 @@ export default function Paywall({ onUnlock }) {
         localStorage.setItem(LS_LICENSE, key)
         window.location.reload()
       } else {
-        setRestoreError('Invalid key. Check your email and try again.')
+        setRestoreError('Invalid key.')
       }
     } catch {
       setRestoreError('Could not connect. Try again.')
