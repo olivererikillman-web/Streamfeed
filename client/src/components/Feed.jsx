@@ -112,7 +112,7 @@ function ChannelManager({ title, platform, list, newVal, setNewVal, color, onAdd
   )
 }
 
-export default function Feed() {
+export default function Feed({ newPurchase = false }) {
   const [videos, setVideos] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -138,7 +138,7 @@ export default function Feed() {
 
   const [addingYoutube, setAddingYoutube] = useState(false)
   const [youtubeAddError, setYoutubeAddError] = useState('')
-  const [showKeyModal, setShowKeyModal] = useState(false)
+  const [showKeyModal, setShowKeyModal] = useState(newPurchase)
   const [copied, setCopied] = useState(false)
 
   const fetchKickData = async (channels) => {
@@ -396,13 +396,13 @@ export default function Feed() {
         <div className="key-modal-backdrop" onClick={() => setShowKeyModal(false)}>
           <div className="key-modal" onClick={e => e.stopPropagation()}>
             <h3>Your License Key</h3>
-            <p>Copy this and save it somewhere safe. If you ever switch browsers, use it to restore access.</p>
+            <p>⚠️ Copy this key and save it somewhere safe (notes app, email to yourself, etc.). This is the only way to restore access if you clear your browser or switch devices. It cannot be recovered.</p>
             <textarea className="key-modal-text" readOnly value={localStorage.getItem('sf_license') || ''} rows={4} />
             <div className="key-modal-actions">
               <button className="key-modal-copy" onClick={() => { navigator.clipboard.writeText(localStorage.getItem('sf_license') || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
                 {copied ? 'Copied!' : 'Copy key'}
               </button>
-              <button className="key-modal-close" onClick={() => setShowKeyModal(false)}>Close</button>
+              <button className="key-modal-close" onClick={() => setShowKeyModal(false)}>I've saved my key</button>
             </div>
           </div>
         </div>

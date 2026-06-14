@@ -21,7 +21,7 @@ export default function App() {
           if (data.license) {
             localStorage.setItem(LS_LICENSE, data.license)
             window.history.replaceState({}, '', '/')
-            setStatus('licensed')
+            setStatus('new-purchase')
           } else {
             setStatus('unlicensed')
           }
@@ -41,5 +41,5 @@ export default function App() {
 
   if (status === 'checking') return <div className="loading-screen">Loading…</div>
   if (status === 'unlicensed') return <Paywall />
-  return <Feed />
+  return <Feed newPurchase={status === 'new-purchase'} />
 }
