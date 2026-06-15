@@ -16,6 +16,9 @@
 }
 
 .feed-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 20px;
   font-weight: 700;
   color: #fff;

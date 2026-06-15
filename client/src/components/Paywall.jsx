@@ -54,7 +54,7 @@ export default function Paywall({ onUnlock }) {
   return (
     <div className="paywall">
       <div className="paywall-card">
-        <div className="paywall-logo">▶ Subfeed</div>
+        <div className="paywall-logo">Subfeed</div>
         <h1>All your creators.<br />One feed.</h1>
         <p className="paywall-desc">
           Follow channels from YouTube, Twitch and Kick in one clean feed.
