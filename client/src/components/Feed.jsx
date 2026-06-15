@@ -453,7 +453,6 @@ export default function Feed({ newPurchase = false }) {
           {error && <div className="state-msg error">{error}</div>}
           {!loading && !error && hasNoChannels && (
             <div className="welcome-state">
-              <div className="welcome-icon">▶</div>
               <h2 className="welcome-title">Welcome to Subfeed</h2>
               <p className="welcome-sub">Add your subscriptions to see all your content in one feed.</p>
               <div className="welcome-platforms">
