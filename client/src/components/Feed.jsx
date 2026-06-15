@@ -362,6 +362,7 @@ export default function Feed({ newPurchase = false }) {
     <div className="feed-layout">
       <header className="feed-header">
         <div className="feed-title">Subfeed</div>
+
         <div className="header-actions">
           <button
             className={`platform-mgr-btn all-btn ${activePlatform === 'all' ? 'all-btn-active' : ''}`}
