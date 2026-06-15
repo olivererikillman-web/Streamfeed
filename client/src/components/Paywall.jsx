@@ -54,7 +54,7 @@ export default function Paywall({ onUnlock }) {
   return (
     <div className="paywall">
       <div className="paywall-card">
-        <div className="paywall-logo">▶ StreamFeed</div>
+        <div className="paywall-logo">▶ Subfeed</div>
         <h1>All your creators.<br />One feed.</h1>
         <p className="paywall-desc">
           Follow channels from YouTube, Twitch and Kick in one clean feed.
@@ -68,7 +68,7 @@ export default function Paywall({ onUnlock }) {
           <li>✓ Your channels stay in your browser</li>
         </ul>
         <button className="paywall-btn" onClick={handlePay} disabled={loading}>
-          {loading ? 'Redirecting to payment…' : 'Get Access — €2'}
+          {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
         </button>
         {error && <p className="paywall-error">{error}</p>}
         <p className="paywall-note">One-time payment · Works in this browser forever</p>

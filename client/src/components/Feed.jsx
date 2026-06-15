@@ -361,7 +361,7 @@ export default function Feed({ newPurchase = false }) {
   return (
     <div className="feed-layout">
       <header className="feed-header">
-        <div className="feed-title">▶ StreamFeed</div>
+        <div className="feed-title">▶ Subfeed</div>
         <div className="header-actions">
           <button
             className={`platform-mgr-btn all-btn ${activePlatform === 'all' ? 'all-btn-active' : ''}`}
@@ -453,7 +453,7 @@ export default function Feed({ newPurchase = false }) {
           {!loading && !error && hasNoChannels && (
             <div className="welcome-state">
               <div className="welcome-icon">▶</div>
-              <h2 className="welcome-title">Welcome to StreamFeed</h2>
+              <h2 className="welcome-title">Welcome to Subfeed</h2>
               <p className="welcome-sub">Add your subscriptions to see all your content in one feed.</p>
               <div className="welcome-platforms">
                 <div className="welcome-platform-card" onClick={() => { setActivePlatform('youtube'); setShowYoutubeManager(true); setShowKickManager(false); setShowTwitchManager(false) }}>

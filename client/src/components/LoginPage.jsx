@@ -5,7 +5,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">▶</div>
-        <h1>StreamFeed</h1>
+        <h1>Subfeed</h1>
         <p>YouTube & Kick in one feed.</p>
         <a href="/auth/login" className="login-btn">
           <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20">
