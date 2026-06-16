@@ -71,7 +71,7 @@ export default function Paywall({ onUnlock }) {
           {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
         </button>
         {error && <p className="paywall-error">{error}</p>}
-        <p className="paywall-note">One-time payment · Use on any browser, anytime</p>
+        <p className="paywall-note">One-time payment</p>
 
         <div className="paywall-divider" />
 
