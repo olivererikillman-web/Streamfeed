@@ -16,6 +16,15 @@
   text-align: center;
 }
 
+.paywall-brand {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 6px;
+}
+
 .paywall-logo {
   display: flex;
   align-items: center;
