@@ -58,7 +58,7 @@ export default function Paywall({ onUnlock }) {
         <h1>All your creators.<br />One feed.</h1>
         <p className="paywall-desc">
           Follow channels from YouTube, Twitch and Kick in one clean feed.
-          No algorithm. No ads. Just the content you chose.
+          No algorithm. No ads. Just the content you choose.
         </p>
         <ul className="paywall-features">
           <li>✓ YouTube, Twitch &amp; Kick</li>
@@ -71,7 +71,7 @@ export default function Paywall({ onUnlock }) {
           {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
         </button>
         {error && <p className="paywall-error">{error}</p>}
-        <p className="paywall-note">One-time payment · Works in this browser forever</p>
+        <p className="paywall-note">One-time payment · Use on any browser, anytime</p>
 
         <div className="paywall-divider" />
 
