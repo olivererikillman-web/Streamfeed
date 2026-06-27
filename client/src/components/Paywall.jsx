@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import './Paywall.css'
 
 const API = import.meta.env.VITE_API_URL || ''
@@ -8,24 +8,12 @@ export default function Paywall({ onUnlock }) {
   const [loading, setLoading] = useState(false)
   const [trialLoading, setTrialLoading] = useState(false)
   const [error, setError] = useState('')
-  const [trialAvailable, setTrialAvailable] = useState(false)
+  const [trialAvailable, setTrialAvailable] = useState(true)
   const [restoring, setRestoring] = useState(false)
   const [restoreKey, setRestoreKey] = useState('')
   const [restoreError, setRestoreError] = useState('')
   const [restoreLoading, setRestoreLoading] = useState(false)
 
-  useEffect(() => {
-    // Check if free trial is available
-    fetch(`${API}/api/free-trial`, { method: 'POST' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.license) {
-          // Trial is available — but don't activate yet, just show the button
-          setTrialAvailable(true)
-        }
-      })
-      .catch(() => {})
-  }, [])
 
   const handlePay = async () => {
     setLoading(true)
