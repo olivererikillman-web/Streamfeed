@@ -83,6 +83,25 @@
 .paywall-btn:hover { opacity: 0.88; }
 .paywall-btn:disabled { opacity: 0.5; cursor: default; }
 
+.paywall-btn-trial {
+  background: #fff;
+  color: #000;
+  margin-bottom: 4px;
+}
+
+.paywall-pay-link {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.paywall-pay-link:hover { color: #aaa; }
+
 .paywall-error {
   font-size: 13px;
   color: #e05252;

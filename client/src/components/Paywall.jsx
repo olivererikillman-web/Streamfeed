@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './Paywall.css'
 
 const API = import.meta.env.VITE_API_URL || ''
@@ -6,11 +6,26 @@ const LS_LICENSE = 'sf_license'
 
 export default function Paywall({ onUnlock }) {
   const [loading, setLoading] = useState(false)
+  const [trialLoading, setTrialLoading] = useState(false)
   const [error, setError] = useState('')
+  const [trialAvailable, setTrialAvailable] = useState(false)
   const [restoring, setRestoring] = useState(false)
   const [restoreKey, setRestoreKey] = useState('')
   const [restoreError, setRestoreError] = useState('')
   const [restoreLoading, setRestoreLoading] = useState(false)
+
+  useEffect(() => {
+    // Check if free trial is available
+    fetch(`${API}/api/free-trial`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.license) {
+          // Trial is available — but don't activate yet, just show the button
+          setTrialAvailable(true)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const handlePay = async () => {
     setLoading(true)
@@ -27,6 +42,26 @@ export default function Paywall({ onUnlock }) {
     } catch {
       setError('Could not connect to payment server.')
       setLoading(false)
+    }
+  }
+
+  const handleFreeTrial = async () => {
+    setTrialLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${API}/api/free-trial`, { method: 'POST' })
+      const data = await res.json()
+      if (data.license) {
+        localStorage.setItem(LS_LICENSE, data.license)
+        window.location.reload()
+      } else {
+        setError('Free trial no longer available.')
+        setTrialAvailable(false)
+      }
+    } catch {
+      setError('Could not connect. Try again.')
+    } finally {
+      setTrialLoading(false)
     }
   }
 
@@ -68,11 +103,27 @@ export default function Paywall({ onUnlock }) {
           <li>✓ No account required</li>
           <li>✓ Your channels stay in your browser</li>
         </ul>
-        <button className="paywall-btn" onClick={handlePay} disabled={loading}>
-          {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
-        </button>
+
+        {trialAvailable ? (
+          <>
+            <button className="paywall-btn paywall-btn-trial" onClick={handleFreeTrial} disabled={trialLoading}>
+              {trialLoading ? 'Activating…' : 'Try free for 7 days'}
+            </button>
+            <p className="paywall-note">No payment needed · Expires after 7 days</p>
+            <button className="paywall-pay-link" onClick={handlePay} disabled={loading}>
+              {loading ? 'Redirecting…' : 'Or get permanent access — €1'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="paywall-btn" onClick={handlePay} disabled={loading}>
+              {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
+            </button>
+            <p className="paywall-note">One-time payment</p>
+          </>
+        )}
+
         {error && <p className="paywall-error">{error}</p>}
-        <p className="paywall-note">One-time payment</p>
 
         <div className="paywall-divider" />
 

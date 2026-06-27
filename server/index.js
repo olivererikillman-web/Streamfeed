@@ -86,6 +86,16 @@ app.get('/api/activate', async (req, res) => {
   }
 });
 
+// Free trial key (7 days from issue)
+app.post('/api/free-trial', (req, res) => {
+  const FREE_UNTIL = process.env.FREE_UNTIL ? new Date(process.env.FREE_UNTIL) : null;
+  if (!FREE_UNTIL || new Date() > FREE_UNTIL) {
+    return res.status(403).json({ error: 'Free trial period has ended.' });
+  }
+  const license = jwt.sign({ trial: true }, LICENSE_SECRET, { expiresIn: '7d' });
+  res.json({ license });
+});
+
 // Verify a license key
 app.get('/api/verify-license', (req, res) => {
   const { key } = req.query;
