@@ -92,6 +92,12 @@ app.post('/api/free-trial', (req, res) => {
   res.json({ license });
 });
 
+// Test endpoint — issues a key that expires in 10 seconds
+app.post('/api/free-trial-test', (req, res) => {
+  const license = jwt.sign({ trial: true }, LICENSE_SECRET, { expiresIn: '10s' });
+  res.json({ license });
+});
+
 // Verify a license key
 app.get('/api/verify-license', (req, res) => {
   const { key } = req.query;
