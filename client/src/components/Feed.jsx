@@ -345,6 +345,13 @@ export default function Feed({ newPurchase = false }) {
 
   const platformFiltered = activePlatform === 'all' ? videos : videos.filter(v => v.platform === activePlatform)
   const channels = ['all', ...Array.from(new Set(platformFiltered.map(v => v.channelName))).sort()]
+  const channelMeta = {} // channelName → { platform, key }
+  videos.forEach(v => {
+    if (!channelMeta[v.channelName]) {
+      const key = v.platform === 'youtube' ? v.channelId : v.channelName
+      channelMeta[v.channelName] = { platform: v.platform, key }
+    }
+  })
   const filtered = activeChannel === 'all' ? platformFiltered : platformFiltered.filter(v => v.channelName === activeChannel)
   const liveVideos = filtered.filter(v => v.isLive)
   const vodVideos = filtered.filter(v => !v.isLive)
@@ -436,13 +443,22 @@ export default function Feed({ newPurchase = false }) {
       {!loading && videos.length > 0 && (
         <div className="filter-bar">
           {channels.map(ch => (
-            <button
-              key={ch}
-              className={`filter-pill ${activeChannel === ch ? 'active' : ''}`}
-              onClick={() => setActiveChannel(ch)}
-            >
-              {ch === 'all' ? 'All channels' : ch}
-            </button>
+            <div key={ch} className={`filter-pill ${activeChannel === ch ? 'active' : ''}`}>
+              <span onClick={() => setActiveChannel(ch)}>
+                {ch === 'all' ? 'All channels' : ch}
+              </span>
+              {ch !== 'all' && channelMeta[ch] && (
+                <button
+                  className="filter-pill-remove"
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (activeChannel === ch) setActiveChannel('all')
+                    const { platform, key } = channelMeta[ch]
+                    removeChannel(platform, key)
+                  }}
+                >✕</button>
+              )}
+            </div>
           ))}
         </div>
       )}
