@@ -6,20 +6,8 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-// Shorts always have a portrait thumbnail at oardefault.jpg; regular videos don't
-async function isYouTubeShort(videoId, title, desc) {
-  // Fast check first: #shorts hashtag
-  if (/#shorts/i.test(title) || /#shorts/i.test(desc)) return true;
-  // CDN check: portrait thumbnail only exists for Shorts
-  try {
-    const r = await axios.head(`https://i.ytimg.com/vi/${videoId}/oardefault.jpg`, {
-      timeout: 3000,
-      validateStatus: () => true,
-    });
-    return r.status === 200;
-  } catch {
-    return false;
-  }
+function isYouTubeShort(videoId, title, desc) {
+  return /#shorts/i.test(title) || /#shorts/i.test(desc);
 }
 
 module.exports = async (req, res) => {
