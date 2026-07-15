@@ -16,28 +16,50 @@ async function getShortVideoIds(videoIds) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey || videoIds.length === 0) return new Set();
   const shortIds = new Set();
+  const ambiguous = []; // 61-180s: could be Shorts (YT Shorts now up to 3 min)
+
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50);
     try {
       const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-        params: { part: 'contentDetails,snippet', id: batch.join(','), key: apiKey },
-        timeout: 8000,
+        params: { part: 'contentDetails', id: batch.join(','), key: apiKey },
+        timeout: 6000,
       });
       for (const item of r.data.items || []) {
-        // Filter if duration ≤ 60s
         const secs = parseDurationSeconds(item.contentDetails?.duration || '');
-        if (secs <= 60) { shortIds.add(item.id); continue; }
-        // Filter if thumbnail is portrait (height > width) — vertical/Shorts format
-        const thumbs = item.snippet?.thumbnails;
-        if (thumbs) {
-          const t = thumbs.maxres || thumbs.high || thumbs.medium;
-          if (t && t.height > t.width) shortIds.add(item.id);
-        }
+        if (secs <= 60) shortIds.add(item.id);
+        else if (secs <= 180) ambiguous.push(item.id);
+        // > 180s: not a Short
       }
     } catch (e) {
       console.error('YouTube API error:', e.message);
     }
   }
+
+  // oEmbed check for 61-180s videos: /shorts/{id} returns 200 for real Shorts,
+  // error for regular landscape videos
+  if (ambiguous.length > 0) {
+    const checks = await Promise.allSettled(
+      ambiguous.map(async id => {
+        try {
+          const r = await axios.get('https://www.youtube.com/oembed', {
+            params: { url: `https://www.youtube.com/shorts/${id}`, format: 'json' },
+            timeout: 4000,
+            validateStatus: () => true,
+          });
+          return { id, isShort: r.status === 200 };
+        } catch {
+          return { id, isShort: false };
+        }
+      })
+    );
+    for (const result of checks) {
+      if (result.status === 'fulfilled' && result.value.isShort) {
+        shortIds.add(result.value.id);
+      }
+    }
+  }
+
   return shortIds;
 }
 

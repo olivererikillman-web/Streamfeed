@@ -6,21 +6,26 @@ module.exports = async (req, res) => {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return res.json({ error: 'No YOUTUBE_API_KEY set' });
 
-  // Rick Roll = regular video, V-_O7nl0Ii0 = known Short
-  const testIds = ['dQw4w9WgXcQ', 'V-_O7nl0Ii0'];
+  // Test oEmbed with /shorts/ URL: real Shorts → 200, regular videos → error
+  const testVideos = [
+    { id: 'dQw4w9WgXcQ', label: 'Rick Roll (regular landscape video)' },
+    { id: 'V-_O7nl0Ii0', label: 'Nice Ocean Waves (Short?)' },
+  ];
   try {
-    const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-      params: { part: 'contentDetails,snippet', id: testIds.join(','), key: apiKey },
-      timeout: 8000,
-    });
-    const results = (r.data.items || []).map(item => ({
-      id: item.id,
-      title: item.snippet?.title,
-      duration: item.contentDetails?.duration,
-      thumbnails: item.snippet?.thumbnails,
+    const results = await Promise.all(testVideos.map(async ({ id, label }) => {
+      try {
+        const r = await axios.get('https://www.youtube.com/oembed', {
+          params: { url: `https://www.youtube.com/shorts/${id}`, format: 'json' },
+          timeout: 5000,
+          validateStatus: () => true,
+        });
+        return { id, label, oembedStatus: r.status, wouldBeFilteredAsShort: r.status === 200 };
+      } catch (e) {
+        return { id, label, oembedError: e.message, wouldBeFilteredAsShort: false };
+      }
     }));
     res.json({ results });
   } catch (e) {
-    res.json({ error: e.message, response: e.response?.data });
+    res.json({ error: e.message });
   }
 };
