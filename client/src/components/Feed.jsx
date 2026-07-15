@@ -344,14 +344,40 @@ export default function Feed({ newPurchase = false }) {
   }
 
   const platformFiltered = activePlatform === 'all' ? videos : videos.filter(v => v.platform === activePlatform)
-  const channels = ['all', ...Array.from(new Set(platformFiltered.map(v => v.channelName))).sort()]
-  const channelMeta = {} // channelName → { platform, key }
+
+  // Build channelMeta from both loaded videos AND stored channels
+  const channelMeta = {}
   videos.forEach(v => {
     if (!channelMeta[v.channelName]) {
-      const key = v.platform === 'youtube' ? v.channelId : v.channelName
-      channelMeta[v.channelName] = { platform: v.platform, key }
+      channelMeta[v.channelName] = { platform: v.platform, key: v.platform === 'youtube' ? v.channelId : v.channelName }
     }
   })
+  youtubeChannels.forEach(ch => {
+    if (!channelMeta[ch.name]) channelMeta[ch.name] = { platform: 'youtube', key: ch.id }
+  })
+  kickChannels.forEach(slug => {
+    const vid = videos.find(v => v.platform === 'kick' && v.channelId === `kick-${slug}`)
+    const name = vid?.channelName || slug
+    if (!channelMeta[name]) channelMeta[name] = { platform: 'kick', key: slug }
+  })
+  twitchChannels.forEach(login => {
+    const vid = videos.find(v => v.platform === 'twitch' && v.channelId === `twitch-${login}`)
+    const name = vid?.channelName || login
+    if (!channelMeta[name]) channelMeta[name] = { platform: 'twitch', key: login }
+  })
+
+  // Build pill list from ALL stored channels, not just ones with videos
+  const allChannelNames = new Set(platformFiltered.map(v => v.channelName))
+  if (activePlatform === 'all' || activePlatform === 'youtube') youtubeChannels.forEach(ch => allChannelNames.add(ch.name))
+  if (activePlatform === 'all' || activePlatform === 'kick') kickChannels.forEach(slug => {
+    const vid = videos.find(v => v.platform === 'kick' && v.channelId === `kick-${slug}`)
+    allChannelNames.add(vid?.channelName || slug)
+  })
+  if (activePlatform === 'all' || activePlatform === 'twitch') twitchChannels.forEach(login => {
+    const vid = videos.find(v => v.platform === 'twitch' && v.channelId === `twitch-${login}`)
+    allChannelNames.add(vid?.channelName || login)
+  })
+  const channels = ['all', ...Array.from(allChannelNames).sort()]
   const filtered = activeChannel === 'all' ? platformFiltered : platformFiltered.filter(v => v.channelName === activeChannel)
   const liveVideos = filtered.filter(v => v.isLive)
   const vodVideos = filtered.filter(v => !v.isLive)
@@ -440,7 +466,7 @@ export default function Feed({ newPurchase = false }) {
         />
       )}
 
-      {!loading && videos.length > 0 && (
+      {!loading && !hasNoChannels && (
         <div className="filter-bar">
           {channels.map(ch => (
             <div key={ch} className={`filter-pill ${activeChannel === ch ? 'active' : ''}`}>
