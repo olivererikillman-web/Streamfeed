@@ -6,6 +6,19 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
+function extractChannelInfo(html, fallbackName) {
+  const channelId =
+    html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[^"]+)"/)?.[1] ||
+    html.match(/"channelId":"(UC[^"]+)"/)?.[1] ||
+    html.match(/"externalId":"(UC[^"]+)"/)?.[1];
+  if (!channelId) return null;
+  const name =
+    html.match(/<title>([^<]+) - YouTube<\/title>/)?.[1]?.trim() ||
+    html.match(/"title":"([^"]+)","description"/)?.[1] ||
+    fallbackName;
+  return { id: channelId, name };
+}
+
 async function resolveYouTubeChannel(handle) {
   const clean = handle.replace(/^@/, '').trim();
   const urls = [
@@ -13,20 +26,16 @@ async function resolveYouTubeChannel(handle) {
     `https://www.youtube.com/c/${clean}`,
     `https://www.youtube.com/user/${clean}`,
   ];
-  for (const url of urls) {
-    try {
-      const r = await axios.get(url, { headers: YT_HEADERS, timeout: 10000, validateStatus: s => s < 500 });
-      if (r.status === 404) continue;
-      const html = r.data;
-      const canonicalMatch = html.match(/<link rel="canonical" href="https:\/\/www\.youtube\.com\/channel\/(UC[^"]+)"/);
-      if (!canonicalMatch) continue;
-      const channelId = canonicalMatch[1];
-      const nameMatch = html.match(/<title>([^<]+) - YouTube<\/title>/);
-      const name = nameMatch ? nameMatch[1].trim() : clean;
-      return { id: channelId, name };
-    } catch (e) {
-      console.error(`YouTube page fetch failed for ${url}:`, e.message);
-    }
+  // Fetch all in parallel with a 7s timeout each
+  const results = await Promise.allSettled(
+    urls.map(url => axios.get(url, { headers: YT_HEADERS, timeout: 7000, validateStatus: s => s < 500 }))
+  );
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    const r = result.value;
+    if (r.status === 404) continue;
+    const info = extractChannelInfo(r.data, clean);
+    if (info) return info;
   }
   throw new Error(`Channel not found: ${handle}`);
 }
