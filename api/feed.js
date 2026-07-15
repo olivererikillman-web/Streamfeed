@@ -6,8 +6,32 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-function isYouTubeShort(videoId, title, desc) {
-  return /#shorts/i.test(title) || /#shorts/i.test(desc);
+function parseDurationSeconds(iso) {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 9999;
+  return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+}
+
+async function getShortVideoIds(videoIds) {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey || videoIds.length === 0) return new Set();
+  const shortIds = new Set();
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batch = videoIds.slice(i, i + 50);
+    try {
+      const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+        params: { part: 'contentDetails', id: batch.join(','), key: apiKey },
+        timeout: 8000,
+      });
+      for (const item of r.data.items || []) {
+        const secs = parseDurationSeconds(item.contentDetails?.duration || '');
+        if (secs <= 60) shortIds.add(item.id);
+      }
+    } catch (e) {
+      console.error('YouTube API duration check error:', e.message);
+    }
+  }
+  return shortIds;
 }
 
 module.exports = async (req, res) => {
@@ -20,57 +44,66 @@ module.exports = async (req, res) => {
 
   const channels = ids.map((id, i) => ({ id, name: decodeURIComponent(names[i] || id) }));
 
-  const videoPromises = channels.map(async channel => {
-    try {
-      const r = await axios.get(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`, {
-        headers: YT_HEADERS, timeout: 10000,
-      });
-      const xml = r.data;
-      const rawEntries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
-        .map(m => m[1])
-        .slice(0, 15)
-        .map(entry => {
-          const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
-          const title = entry.match(/<title>([^<]+)<\/title>/)?.[1]
-            ?.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"') || '';
-          const publishedAt = entry.match(/<published>([^<]+)<\/published>/)?.[1];
-          const thumbnail = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
-            `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-          const descRaw = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] || '';
-          const desc = descRaw.replace(/<!\[CDATA\[/, '').replace(/\]\]>/, '');
-          return { videoId, title, publishedAt, thumbnail, desc };
-        })
-        .filter(v => v.videoId);
+  // Fetch all RSS feeds in parallel
+  const rssResults = await Promise.allSettled(
+    channels.map(async channel => {
+      try {
+        const r = await axios.get(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}`, {
+          headers: YT_HEADERS, timeout: 10000,
+        });
+        const xml = r.data;
+        return [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
+          .map(m => m[1])
+          .slice(0, 15)
+          .map(entry => {
+            const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
+            const title = entry.match(/<title>([^<]+)<\/title>/)?.[1]
+              ?.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"') || '';
+            const publishedAt = entry.match(/<published>([^<]+)<\/published>/)?.[1];
+            const thumbnail = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
+              `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+            return { videoId, title, publishedAt, thumbnail, channelName: channel.name, channelId: channel.id };
+          })
+          .filter(v => v.videoId);
+      } catch (e) {
+        console.error(`RSS error for ${channel.name}:`, e.message);
+        return [];
+      }
+    })
+  );
 
-      // Check all entries for Shorts in parallel
-      const shortFlags = await Promise.all(
-        rawEntries.map(v => isYouTubeShort(v.videoId, v.title, v.desc))
-      );
-
-      return rawEntries
-        .filter((_, i) => !shortFlags[i])
-        .slice(0, 5)
-        .map(v => ({
-          videoId: v.videoId,
-          title: v.title,
-          channelName: channel.name,
-          channelId: channel.id,
-          thumbnail: v.thumbnail,
-          publishedAt: v.publishedAt,
-          url: `https://www.youtube.com/watch?v=${v.videoId}`,
-          platform: 'youtube',
-        }));
-    } catch (e) {
-      console.error(`YouTube RSS error for ${channel.name}:`, e.message);
-      return [];
+  // Collect all videos grouped by channel
+  const channelVideos = new Map();
+  for (const result of rssResults) {
+    if (result.status !== 'fulfilled') continue;
+    for (const video of result.value) {
+      if (!channelVideos.has(video.channelId)) channelVideos.set(video.channelId, []);
+      channelVideos.get(video.channelId).push(video);
     }
-  });
+  }
 
-  const results = await Promise.allSettled(videoPromises);
-  const videos = results
-    .filter(r => r.status === 'fulfilled')
-    .flatMap(r => r.value)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+  // Get Short IDs via YouTube API (all videos in one/two calls)
+  const allIds = [...channelVideos.values()].flat().map(v => v.videoId);
+  const shortIds = await getShortVideoIds(allIds);
 
+  // Take up to 5 non-Short videos per channel, then combine and sort
+  const videos = [];
+  for (const cVideos of channelVideos.values()) {
+    const nonShorts = cVideos.filter(v => !shortIds.has(v.videoId)).slice(0, 5);
+    for (const v of nonShorts) {
+      videos.push({
+        videoId: v.videoId,
+        title: v.title,
+        channelName: v.channelName,
+        channelId: v.channelId,
+        thumbnail: v.thumbnail,
+        publishedAt: v.publishedAt,
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+        platform: 'youtube',
+      });
+    }
+  }
+
+  videos.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
   res.json(videos);
 };
