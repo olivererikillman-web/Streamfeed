@@ -6,19 +6,20 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-function isShort(entry, title) {
-  // Portrait thumbnail = Short (height > width in RSS feed)
-  const thumbMatch = entry.match(/<media:thumbnail url="[^"]+" width="(\d+)" height="(\d+)"/);
-  if (thumbMatch) {
-    const w = parseInt(thumbMatch[1]);
-    const h = parseInt(thumbMatch[2]);
-    if (h > w) return true;
-  }
-  // #shorts hashtag in title or description (handles CDATA)
-  const descRaw = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] || '';
-  const desc = descRaw.replace(/<!\[CDATA\[/, '').replace(/\]\]>/, '');
+// Shorts always have a portrait thumbnail at oardefault.jpg; regular videos don't
+async function isYouTubeShort(videoId, title, desc) {
+  // Fast check first: #shorts hashtag
   if (/#shorts/i.test(title) || /#shorts/i.test(desc)) return true;
-  return false;
+  // CDN check: portrait thumbnail only exists for Shorts
+  try {
+    const r = await axios.head(`https://i.ytimg.com/vi/${videoId}/oardefault.jpg`, {
+      timeout: 3000,
+      validateStatus: () => true,
+    });
+    return r.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 module.exports = async (req, res) => {
@@ -37,28 +38,40 @@ module.exports = async (req, res) => {
         headers: YT_HEADERS, timeout: 10000,
       });
       const xml = r.data;
-      const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
+      const rawEntries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)]
         .map(m => m[1])
         .slice(0, 15)
         .map(entry => {
           const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/)?.[1];
           const title = entry.match(/<title>([^<]+)<\/title>/)?.[1]
-            ?.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            ?.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"') || '';
           const publishedAt = entry.match(/<published>([^<]+)<\/published>/)?.[1];
-          const thumbUrl = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
+          const thumbnail = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
             `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-          if (isShort(entry, title || '')) return null;
-          return {
-            videoId, title,
-            channelName: channel.name, channelId: channel.id,
-            thumbnail: thumbUrl, publishedAt,
-            url: `https://www.youtube.com/watch?v=${videoId}`,
-            platform: 'youtube',
-          };
+          const descRaw = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] || '';
+          const desc = descRaw.replace(/<!\[CDATA\[/, '').replace(/\]\]>/, '');
+          return { videoId, title, publishedAt, thumbnail, desc };
         })
-        .filter(v => v && v.videoId);
+        .filter(v => v.videoId);
 
-      return entries.slice(0, 5);
+      // Check all entries for Shorts in parallel
+      const shortFlags = await Promise.all(
+        rawEntries.map(v => isYouTubeShort(v.videoId, v.title, v.desc))
+      );
+
+      return rawEntries
+        .filter((_, i) => !shortFlags[i])
+        .slice(0, 5)
+        .map(v => ({
+          videoId: v.videoId,
+          title: v.title,
+          channelName: channel.name,
+          channelId: channel.id,
+          thumbnail: v.thumbnail,
+          publishedAt: v.publishedAt,
+          url: `https://www.youtube.com/watch?v=${v.videoId}`,
+          platform: 'youtube',
+        }));
     } catch (e) {
       console.error(`YouTube RSS error for ${channel.name}:`, e.message);
       return [];
