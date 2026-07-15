@@ -20,15 +20,22 @@ async function getShortVideoIds(videoIds) {
     const batch = videoIds.slice(i, i + 50);
     try {
       const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-        params: { part: 'contentDetails', id: batch.join(','), key: apiKey },
+        params: { part: 'contentDetails,snippet', id: batch.join(','), key: apiKey },
         timeout: 8000,
       });
       for (const item of r.data.items || []) {
+        // Filter if duration ≤ 60s
         const secs = parseDurationSeconds(item.contentDetails?.duration || '');
-        if (secs <= 60) shortIds.add(item.id);
+        if (secs <= 60) { shortIds.add(item.id); continue; }
+        // Filter if thumbnail is portrait (height > width) — vertical/Shorts format
+        const thumbs = item.snippet?.thumbnails;
+        if (thumbs) {
+          const t = thumbs.maxres || thumbs.high || thumbs.medium;
+          if (t && t.height > t.width) shortIds.add(item.id);
+        }
       }
     } catch (e) {
-      console.error('YouTube API duration check error:', e.message);
+      console.error('YouTube API error:', e.message);
     }
   }
   return shortIds;
