@@ -6,17 +6,20 @@ module.exports = async (req, res) => {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return res.json({ error: 'No YOUTUBE_API_KEY set' });
 
+  // Rick Roll = regular video, V-_O7nl0Ii0 = known Short
+  const testIds = ['dQw4w9WgXcQ', 'V-_O7nl0Ii0'];
   try {
-    // Test with a known Short (dQw4w9WgXcW is not a short, but let's test API connectivity)
     const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-      params: {
-        part: 'contentDetails',
-        id: 'dQw4w9WgXcQ', // Rick Roll - a normal video
-        key: apiKey,
-      },
+      params: { part: 'contentDetails,snippet', id: testIds.join(','), key: apiKey },
       timeout: 8000,
     });
-    res.json({ status: r.status, data: r.data });
+    const results = (r.data.items || []).map(item => ({
+      id: item.id,
+      title: item.snippet?.title,
+      duration: item.contentDetails?.duration,
+      thumbnails: item.snippet?.thumbnails,
+    }));
+    res.json({ results });
   } catch (e) {
     res.json({ error: e.message, response: e.response?.data });
   }
