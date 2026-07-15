@@ -24,13 +24,17 @@ module.exports = async (req, res) => {
     const title = item.snippet?.title || '';
     const desc = item.snippet?.description || '';
     const secs = parseDurationSeconds(item.contentDetails?.duration || '');
+    const thumbs = item.snippet?.thumbnails;
+    const t = thumbs?.maxres || thumbs?.high || thumbs?.medium;
     res.json({
       id: testId,
       title,
       duration: item.contentDetails?.duration,
       durationSeconds: secs,
       hasShortTag: /#shorts/i.test(title) || /#shorts/i.test(desc),
-      descriptionSnippet: desc.slice(0, 300),
+      thumbnailDimensions: t ? { width: t.width, height: t.height, isPortrait: t.height > t.width } : null,
+      allThumbnails: thumbs,
+      descriptionSnippet: desc.slice(0, 500),
     });
   } catch (e) {
     res.json({ error: e.message });
