@@ -16,50 +16,32 @@ async function getShortVideoIds(videoIds) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey || videoIds.length === 0) return new Set();
   const shortIds = new Set();
-  const ambiguous = []; // 61-180s: could be Shorts (YT Shorts now up to 3 min)
 
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50);
     try {
       const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-        params: { part: 'contentDetails', id: batch.join(','), key: apiKey },
-        timeout: 6000,
+        params: { part: 'contentDetails,snippet', id: batch.join(','), key: apiKey },
+        timeout: 8000,
       });
       for (const item of r.data.items || []) {
         const secs = parseDurationSeconds(item.contentDetails?.duration || '');
-        if (secs <= 60) shortIds.add(item.id);
-        else if (secs <= 180) ambiguous.push(item.id);
-        // > 180s: not a Short
+        // Definitely a Short if ≤ 60s
+        if (secs <= 60) { shortIds.add(item.id); continue; }
+        // For 61-300s: filter only if tagged #shorts (music videos won't have this)
+        if (secs <= 300) {
+          const title = item.snippet?.title || '';
+          const desc = item.snippet?.description || '';
+          if (/#shorts/i.test(title) || /#shorts/i.test(desc)) {
+            shortIds.add(item.id);
+          }
+        }
+        // > 300s: never a Short
       }
     } catch (e) {
       console.error('YouTube API error:', e.message);
     }
   }
-
-  // oEmbed check for 61-180s videos: /shorts/{id} returns 200 for real Shorts,
-  // error for regular landscape videos
-  if (ambiguous.length > 0) {
-    const checks = await Promise.allSettled(
-      ambiguous.map(async id => {
-        try {
-          const r = await axios.get('https://www.youtube.com/oembed', {
-            params: { url: `https://www.youtube.com/shorts/${id}`, format: 'json' },
-            timeout: 4000,
-            validateStatus: () => true,
-          });
-          return { id, isShort: r.status === 200 };
-        } catch {
-          return { id, isShort: false };
-        }
-      })
-    );
-    for (const result of checks) {
-      if (result.status === 'fulfilled' && result.value.isShort) {
-        shortIds.add(result.value.id);
-      }
-    }
-  }
-
   return shortIds;
 }
 
