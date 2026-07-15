@@ -6,40 +6,41 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-function parseDurationSeconds(iso) {
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!m) return 9999;
-  return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+// Fetch actual JPEG binary and read real image dimensions from header
+async function getActualJpegDimensions(videoId) {
+  try {
+    const r = await axios.get(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, {
+      responseType: 'arraybuffer',
+      headers: { Range: 'bytes=0-8192' },
+      timeout: 4000,
+      validateStatus: () => true,
+    });
+    const buf = Buffer.from(r.data);
+    for (let i = 0; i < buf.length - 9; i++) {
+      if (buf[i] === 0xFF && (buf[i+1] === 0xC0 || buf[i+1] === 0xC1 || buf[i+1] === 0xC2)) {
+        const h = (buf[i+5] << 8) | buf[i+6];
+        const w = (buf[i+7] << 8) | buf[i+8];
+        return { width: w, height: h };
+      }
+    }
+  } catch {}
+  return null;
 }
 
 async function getShortVideoIds(videoIds) {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey || videoIds.length === 0) return new Set();
+  if (videoIds.length === 0) return new Set();
   const shortIds = new Set();
 
-  for (let i = 0; i < videoIds.length; i += 50) {
-    const batch = videoIds.slice(i, i + 50);
-    try {
-      const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-        params: { part: 'contentDetails,snippet', id: batch.join(','), key: apiKey },
-        timeout: 8000,
-      });
-      for (const item of r.data.items || []) {
-        const secs = parseDurationSeconds(item.contentDetails?.duration || '');
-        // Definitely a Short if ≤ 60s
-        if (secs <= 60) { shortIds.add(item.id); continue; }
-        // For 61-300s: filter only if tagged #shorts (music videos won't have this)
-        if (secs <= 300) {
-          const title = item.snippet?.title || '';
-          const desc = item.snippet?.description || '';
-          if (/#shorts/i.test(title) || /#shorts/i.test(desc)) {
-            shortIds.add(item.id);
-          }
-        }
-        // > 300s: never a Short
-      }
-    } catch (e) {
-      console.error('YouTube API error:', e.message);
+  const results = await Promise.allSettled(
+    videoIds.map(async id => {
+      const dims = await getActualJpegDimensions(id);
+      return { id, isPortrait: dims ? dims.height > dims.width : false };
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.isPortrait) {
+      shortIds.add(result.value.id);
     }
   }
   return shortIds;
