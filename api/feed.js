@@ -6,18 +6,19 @@ const YT_HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
-async function isYouTubeShort(videoId) {
-  try {
-    const r = await axios.get(`https://www.youtube.com/shorts/${videoId}`, {
-      headers: { 'User-Agent': 'curl/7.68.0' },
-      timeout: 5000,
-      maxRedirects: 0,
-      validateStatus: () => true,
-    });
-    return r.status === 200;
-  } catch {
-    return false;
+function isShort(entry, title) {
+  // Portrait thumbnail = Short (height > width in RSS feed)
+  const thumbMatch = entry.match(/<media:thumbnail url="[^"]+" width="(\d+)" height="(\d+)"/);
+  if (thumbMatch) {
+    const w = parseInt(thumbMatch[1]);
+    const h = parseInt(thumbMatch[2]);
+    if (h > w) return true;
   }
+  // #shorts hashtag in title or description (handles CDATA)
+  const descRaw = entry.match(/<media:description>([\s\S]*?)<\/media:description>/)?.[1] || '';
+  const desc = descRaw.replace(/<!\[CDATA\[/, '').replace(/\]\]>/, '');
+  if (/#shorts/i.test(title) || /#shorts/i.test(desc)) return true;
+  return false;
 }
 
 module.exports = async (req, res) => {
@@ -44,22 +45,20 @@ module.exports = async (req, res) => {
           const title = entry.match(/<title>([^<]+)<\/title>/)?.[1]
             ?.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
           const publishedAt = entry.match(/<published>([^<]+)<\/published>/)?.[1];
-          const thumbnail = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
+          const thumbUrl = entry.match(/<media:thumbnail url="([^"]+)"/)?.[1] ||
             `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+          if (isShort(entry, title || '')) return null;
           return {
             videoId, title,
             channelName: channel.name, channelId: channel.id,
-            thumbnail, publishedAt,
+            thumbnail: thumbUrl, publishedAt,
             url: `https://www.youtube.com/watch?v=${videoId}`,
             platform: 'youtube',
           };
         })
-        .filter(v => v.videoId);
+        .filter(v => v && v.videoId);
 
-      const shortFlags = await Promise.all(entries.map(v => isYouTubeShort(v.videoId)));
-      const nonShorts = entries.filter((_, i) => !shortFlags[i]);
-      const toShow = nonShorts.length > 0 ? nonShorts : entries;
-      return toShow.slice(0, 5);
+      return entries.slice(0, 5);
     } catch (e) {
       console.error(`YouTube RSS error for ${channel.name}:`, e.message);
       return [];
