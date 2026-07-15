@@ -19,7 +19,7 @@ module.exports = async (req, res) => {
           timeout: 5000,
           validateStatus: () => true,
         });
-        return { id, label, oembedStatus: r.status, wouldBeFilteredAsShort: r.status === 200 };
+        return { id, label, oembedStatus: r.status, width: r.data.width, height: r.data.height, isPortrait: r.data.height > r.data.width };
       } catch (e) {
         return { id, label, oembedError: e.message, wouldBeFilteredAsShort: false };
       }
