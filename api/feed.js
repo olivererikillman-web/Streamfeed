@@ -9,7 +9,8 @@ const YT_HEADERS = {
 // Fetch actual JPEG binary and read real image dimensions from header
 async function getActualJpegDimensions(videoId) {
   try {
-    const r = await axios.get(`https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, {
+    // oardefault.jpg = "original aspect ratio" thumbnail — portrait for Shorts, landscape for regular videos
+    const r = await axios.get(`https://i.ytimg.com/vi/${videoId}/oardefault.jpg`, {
       responseType: 'arraybuffer',
       headers: { Range: 'bytes=0-8192' },
       timeout: 4000,
