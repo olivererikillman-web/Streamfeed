@@ -219,7 +219,12 @@ export default function Feed({ newPurchase = false }) {
 
     const seen = new Set()
     const all = [...ytVideos, ...kickVideos, ...twitchVideos]
-      .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+      .sort((a, b) => {
+        // Live items always beat their matching VOD in dedup — sort them first
+        if (a.isLive && !b.isLive) return -1
+        if (!a.isLive && b.isLive) return 1
+        return new Date(b.publishedAt) - new Date(a.publishedAt)
+      })
       .filter(v => {
         const key = `${v.channelName?.toLowerCase()}::${v.title?.toLowerCase().trim()}`
         if (seen.has(key)) return false
@@ -426,7 +431,7 @@ export default function Feed({ newPurchase = false }) {
         />
       )}
 
-      {!loading && !hasNoChannels && (
+      {!loading && !hasNoChannels && !showYoutubeManager && !showKickManager && !showTwitchManager && (
         <div className="filter-bar">
           {channels.map(ch => (
             <div key={ch} className={`filter-pill ${activeChannel === ch ? 'active' : ''}`}>
