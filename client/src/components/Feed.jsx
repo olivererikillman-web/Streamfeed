@@ -191,21 +191,23 @@ export default function Feed({ newPurchase = false }) {
   const fetchTwitchData = async (channels) => {
     if (channels.length === 0) return []
 
-    const results = await Promise.allSettled(channels.map(async (login) => {
-      const gqlQuery = (query) => fetch('https://gql.twitch.tv/gql', {
-        method: 'POST',
-        headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      }).then(r => r.json())
+    const gql = (query) => fetch('https://gql.twitch.tv/gql', {
+      method: 'POST',
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    }).then(r => r.json()).catch(() => ({ data: {} }))
 
-      const [streamData, vodsData] = await Promise.all([
-        gqlQuery(`{ user(login:"${login}") { displayName stream { title viewersCount createdAt previewImageURL(width:320,height:180) } } }`),
-        gqlQuery(`{ user(login:"${login}") { displayName videos(first:5,type:ARCHIVE) { edges { node { id title publishedAt previewThumbnailURL(width:320,height:180) } } } } }`)
-      ])
+    // Batch all channels into 2 requests using GQL aliases — avoids per-channel rate limiting
+    const streamQ = `{ ${channels.map((l, i) => `u${i}: user(login:"${l}") { displayName stream { title viewersCount createdAt previewImageURL(width:320,height:180) } }`).join(' ')} }`
+    const vodsQ   = `{ ${channels.map((l, i) => `u${i}: user(login:"${l}") { displayName videos(first:5,type:ARCHIVE) { edges { node { id title publishedAt previewThumbnailURL(width:320,height:180) } } } }`).join(' ')} }`
 
-      const items = []
-      const user = streamData?.data?.user
-      const displayName = user?.displayName || login
+    const [streamData, vodsData] = await Promise.all([gql(streamQ), gql(vodsQ)])
+
+    const items = []
+    channels.forEach((login, i) => {
+      const user    = streamData?.data?.[`u${i}`]
+      const vodUser = vodsData?.data?.[`u${i}`]
+      const displayName = user?.displayName || vodUser?.displayName || login
 
       if (user?.stream) {
         const s = user.stream
@@ -217,13 +219,11 @@ export default function Feed({ newPurchase = false }) {
           thumbnail: s.previewImageURL,
           publishedAt: s.createdAt,
           url: `https://twitch.tv/${login}`,
-          platform: 'twitch', isLive: true, viewers: s.viewersCount
+          platform: 'twitch', isLive: true, viewers: s.viewersCount,
         })
       }
 
-      const vodUser = vodsData?.data?.user
-      const vods = vodUser?.videos?.edges || []
-      for (const { node: vod } of vods) {
+      for (const { node: vod } of (vodUser?.videos?.edges || [])) {
         items.push({
           id: `twitch-vod-${vod.id}`,
           title: vod.title || 'Untitled VOD',
@@ -232,13 +232,12 @@ export default function Feed({ newPurchase = false }) {
           thumbnail: vod.previewThumbnailURL,
           publishedAt: vod.publishedAt,
           url: `https://twitch.tv/videos/${vod.id}`,
-          platform: 'twitch', isLive: false
+          platform: 'twitch', isLive: false,
         })
       }
+    })
 
-      return items
-    }))
-    return results.filter(r => r.status === 'fulfilled').flatMap(r => r.value)
+    return items
   }
 
   const loadFeed = async (yt = youtubeChannels, kick = kickChannels, twitch = twitchChannels) => {
