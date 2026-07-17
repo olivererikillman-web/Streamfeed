@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import VideoCard from './VideoCard'
 import './Feed.css'
 
-const TWITCH_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko'
 const API = import.meta.env.VITE_API_URL || ''
 
 // --- localStorage helpers ---
@@ -190,54 +189,12 @@ export default function Feed({ newPurchase = false }) {
 
   const fetchTwitchData = async (channels) => {
     if (channels.length === 0) return []
-
-    const gql = (query) => fetch('https://gql.twitch.tv/gql', {
-      method: 'POST',
-      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query }),
-    }).then(r => r.json()).catch(() => ({ data: {} }))
-
-    // Batch all channels into 2 requests using GQL aliases — avoids per-channel rate limiting
-    const streamQ = `{ ${channels.map((l, i) => `u${i}: user(login:"${l}") { displayName stream { title viewersCount createdAt previewImageURL(width:320,height:180) } }`).join(' ')} }`
-    const vodsQ   = `{ ${channels.map((l, i) => `u${i}: user(login:"${l}") { displayName videos(first:5,type:ARCHIVE) { edges { node { id title publishedAt previewThumbnailURL(width:320,height:180) } } } }`).join(' ')} }`
-
-    const [streamData, vodsData] = await Promise.all([gql(streamQ), gql(vodsQ)])
-
-    const items = []
-    channels.forEach((login, i) => {
-      const user    = streamData?.data?.[`u${i}`]
-      const vodUser = vodsData?.data?.[`u${i}`]
-      const displayName = user?.displayName || vodUser?.displayName || login
-
-      if (user?.stream) {
-        const s = user.stream
-        items.push({
-          id: `twitch-live-${login}`,
-          title: s.title || `${displayName} is live`,
-          channelName: displayName,
-          channelId: `twitch-${login}`,
-          thumbnail: s.previewImageURL,
-          publishedAt: s.createdAt,
-          url: `https://twitch.tv/${login}`,
-          platform: 'twitch', isLive: true, viewers: s.viewersCount,
-        })
-      }
-
-      for (const { node: vod } of (vodUser?.videos?.edges || [])) {
-        items.push({
-          id: `twitch-vod-${vod.id}`,
-          title: vod.title || 'Untitled VOD',
-          channelName: displayName,
-          channelId: `twitch-${login}`,
-          thumbnail: vod.previewThumbnailURL,
-          publishedAt: vod.publishedAt,
-          url: `https://twitch.tv/videos/${vod.id}`,
-          platform: 'twitch', isLive: false,
-        })
-      }
-    })
-
-    return items
+    try {
+      const r = await fetch(`${API}/api/twitch?logins=${channels.join(',')}`)
+      return r.ok ? r.json() : []
+    } catch {
+      return []
+    }
   }
 
   const loadFeed = async (yt = youtubeChannels, kick = kickChannels, twitch = twitchChannels) => {
