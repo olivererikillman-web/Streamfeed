@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Subfeed — Ad Assets</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a1a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #fff; padding: 40px 20px; }
+
+  .section { margin-bottom: 60px; }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 16px;
+  }
+
+  /* ─── SOCIAL POST ─── */
+  .social-post {
+    width: 540px;
+    height: 540px;
+    background: #0f0f0f;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #222;
+  }
+
+  .social-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: absolute;
+    top: 36px;
+    left: 36px;
+  }
+  .social-logo-text {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #fff;
+    opacity: 0.7;
+  }
+
+  .social-url {
+    position: absolute;
+    bottom: 36px;
+    right: 36px;
+    font-size: 13px;
+    color: #555;
+    letter-spacing: 0.03em;
+  }
+
+  .social-main {
+    text-align: center;
+    padding: 0 48px;
+  }
+
+  .social-headline {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 28px;
+  }
+
+  .social-platforms {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 40px;
+  }
+  .platform-pill {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+  }
+  .pill-yt  { background: #FF0000; color: #fff; }
+  .pill-tw  { background: #9146FF; color: #fff; }
+  .pill-kk  { background: #53FC18; color: #000; }
+
+  .social-cta {
+    display: inline-block;
+    background: #fff;
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 13px 32px;
+    border-radius: 100px;
+    letter-spacing: 0.02em;
+  }
+
+  .social-trial-note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #444;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── REDDIT POST ─── */
+  .reddit-card {
+    background: #0f0f0f;
+    border: 1px solid #222;
+    border-radius: 8px;
+    max-width: 700px;
+    overflow: hidden;
+  }
+  .reddit-header {
+    padding: 18px 20px 0;
+    font-size: 11px;
+    color: #666;
+  }
+  .reddit-header span { color: #888; }
+  .reddit-title {
+    padding: 10px 20px 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+  }
+  .reddit-body {
+    padding: 0 20px 20px;
+    font-size: 14px;
+    color: #aaa;
+    line-height: 1.7;
+  }
+  .reddit-body p { margin-bottom: 12px; }
+  .reddit-body p:last-child { margin-bottom: 0; }
+  .reddit-link {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .reddit-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #1e1e1e;
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    color: #555;
+  }
+  .reddit-footer span { cursor: pointer; }
+  .reddit-footer span:hover { color: #888; }
+
+  /* Reddit preview image inside post */
+  .reddit-preview-img {
+    margin: 0 20px 16px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #111;
+    border: 1px solid #1e1e1e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+    gap: 16px;
+  }
+  .reddit-preview-headline {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+  .reddit-preview-sub {
+    font-size: 12px;
+    color: #555;
+    margin-top: 4px;
+  }
+
+  /* ─── BANNERS ─── */
+  .banners { display: flex; flex-direction: column; gap: 24px; }
+
+  /* 728×90 */
+  .banner-728 {
+    width: 728px;
+    height: 90px;
+    background: #0f0f0f;
+    border: 1px solid #222;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .banner-728-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .banner-728-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+  .banner-divider {
+    width: 1px;
+    height: 36px;
+    background: #2a2a2a;
+    flex-shrink: 0;
+  }
+  .banner-728-headline {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    flex: 1;
+    letter-spacing: -0.01em;
+  }
+  .banner-728-sub {
+    font-size: 11px;
+    color: #555;
+    margin-top: 2px;
+  }
+  .banner-platforms {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .banner-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 100px;
+  }
+  .banner-728-cta {
+    background: #fff;
+    color: #000;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 20px;
+    border-radius: 100px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.01em;
+  }
+
+  /* 300×250 */
+  .banner-300 {
+    width: 300px;
+    height: 250px;
+    background: #0f0f0f;
+    border: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 24px;
+    text-align: center;
+    gap: 0;
+  }
+  .banner-300-logo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 18px;
+  }
+  .banner-300-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.05em;
+  }
+  .banner-300-headline {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+  }
+  .banner-300-platforms {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .banner-300-cta {
+    background: #fff;
+    color: #000;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 9px 22px;
+    border-radius: 100px;
+    letter-spacing: 0.01em;
+    margin-bottom: 8px;
+  }
+  .banner-300-url {
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ SOCIAL MEDIA POST (1080×1080) ═══ -->
+<div class="section">
+  <div class="section-label">Social media post — 1080×1080 (shown at 540×540)</div>
+  <div class="social-post">
+
+    <!-- Logo top-left -->
+    <div class="social-logo">
+      <svg width="18" height="14" viewBox="0 0 60 45" fill="#fff">
+        <rect x="0" y="0"    width="60" height="12" />
+        <rect x="0" y="16.5" width="60" height="12" />
+        <rect x="0" y="33"   width="60" height="12" />
+      </svg>
+      <span class="social-logo-text">Subfeed</span>
+    </div>
+
+    <!-- URL bottom-right -->
+    <div class="social-url">subfeed.xyz</div>
+
+    <!-- Main content -->
+    <div class="social-main">
+      <div class="social-headline">All your<br>creators.<br>One feed.</div>
+      <div class="social-platforms">
+        <span class="platform-pill pill-yt">YouTube</span>
+        <span class="platform-pill pill-tw">Twitch</span>
+        <span class="platform-pill pill-kk">Kick</span>
+      </div>
+      <div class="social-cta">Try free for 7 days</div>
+      <div class="social-trial-note">Then €2.99 one-time · No subscription</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ REDDIT / FORUM POST ═══ -->
+<div class="section">
+  <div class="section-label">Reddit / forum post</div>
+  <div class="reddit-card">
+    <div class="reddit-header">
+      Posted by <span>u/oliverillman</span> in <span>r/webapps</span>
+    </div>
+    <div class="reddit-title">
+      I got tired of checking YouTube, Twitch, and Kick separately — so I built one feed for all of them
+    </div>
+
+    <!-- Small link preview inside post -->
+    <div class="reddit-preview-img">
+      <svg width="24" height="18" viewBox="0 0 60 45" fill="#fff" style="opacity:0.5;flex-shrink:0">
+        <rect x="0" y="0"    width="60" height="12" />
+        <rect x="0" y="16.5" width="60" height="12" />
+        <rect x="0" y="33"   width="60" height="12" />
+      </svg>
+      <div>
+        <div class="reddit-preview-headline">subfeed.xyz</div>
+        <div class="reddit-preview-sub">YouTube · Twitch · Kick — one clean feed</div>
+      </div>
+    </div>
+
+    <div class="reddit-body">
+      <p>
+        Every day I was opening three separate tabs just to see if anyone I follow had posted something new.
+        YouTube, Twitch, Kick — they're all fine on their own, but they're all different places you have to check.
+      </p>
+      <p>
+        I built <strong style="color:#fff">Subfeed</strong> to fix this. You add your channels from YouTube,
+        Twitch, and Kick, and it shows everything in one place — sorted by newest, with live streams
+        pinned at the top. Only the channels you follow. No noise, no distractions, just the content you
+        actually wanted to see.
+      </p>
+      <p>
+        There's no account to create. Your channels stay in your browser. It works on mobile too.
+      </p>
+      <p>
+        It's free to try for 7 days. After that it's €2.99 one-time — no subscription, no renewals.
+        I wanted to keep it simple.
+      </p>
+      <p>
+        <a class="reddit-link" href="https://subfeed.xyz">subfeed.xyz</a> — would love any feedback.
+      </p>
+    </div>
+    <div class="reddit-footer">
+      <span>▲ 142</span>
+      <span>💬 38 comments</span>
+      <span>🔗 Share</span>
+      <span>⚑ Save</span>
+    </div>
+  </div>
+
+  <!-- Reddit post copy for copy/paste -->
+  <div style="margin-top:20px; background:#111; border:1px solid #222; border-radius:8px; padding:20px; max-width:700px;">
+    <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#555;margin-bottom:12px">Copy/paste text</div>
+    <div style="font-size:13px;color:#888;line-height:1.8">
+      <strong style="color:#ccc; display:block; margin-bottom:8px">Title:</strong>
+      I got tired of checking YouTube, Twitch, and Kick separately — so I built one feed for all of them<br><br>
+      <strong style="color:#ccc; display:block; margin-bottom:8px">Body:</strong>
+      Every day I was opening three separate tabs just to see if anyone I follow had posted something new. YouTube, Twitch, Kick — they're all fine on their own, but they're all different places you have to check.<br><br>
+      I built Subfeed to fix this. You add your channels from YouTube, Twitch, and Kick, and it shows everything in one place — sorted by newest, with live streams pinned at the top. Only the channels you follow. No noise, no distractions, just the content you actually wanted to see.<br><br>
+      There's no account to create. Your channels stay in your browser. It works on mobile too.<br><br>
+      It's free to try for 7 days. After that it's €2.99 one-time — no subscription, no renewals.<br><br>
+      subfeed.xyz — would love any feedback.
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BANNER ADS ═══ -->
+<div class="section">
+  <div class="section-label">Banner ads</div>
+  <div class="banners">
+
+    <!-- 728×90 Leaderboard -->
+    <div>
+      <div style="font-size:11px;color:#444;margin-bottom:8px;letter-spacing:0.08em">728×90 Leaderboard</div>
+      <div class="banner-728">
+        <div class="banner-728-logo">
+          <svg width="16" height="12" viewBox="0 0 60 45" fill="#fff">
+            <rect x="0" y="0"    width="60" height="12" />
+            <rect x="0" y="16.5" width="60" height="12" />
+            <rect x="0" y="33"   width="60" height="12" />
+          </svg>
+          <span class="banner-728-name">Subfeed</span>
+        </div>
+        <div class="banner-divider"></div>
+        <div>
+          <div class="banner-728-headline">All your creators. One feed.</div>
+          <div class="banner-728-sub">YouTube · Twitch · Kick — live streams pinned at the top</div>
+        </div>
+        <div class="banner-platforms">
+          <span class="banner-pill pill-yt">YT</span>
+          <span class="banner-pill pill-tw">TW</span>
+          <span class="banner-pill pill-kk">KK</span>
+        </div>
+        <div class="banner-728-cta">7 days free →</div>
+      </div>
+    </div>
+
+    <!-- 300×250 Medium Rectangle -->
+    <div>
+      <div style="font-size:11px;color:#444;margin-bottom:8px;letter-spacing:0.08em">300×250 Medium Rectangle</div>
+      <div class="banner-300">
+        <div class="banner-300-logo">
+          <svg width="16" height="12" viewBox="0 0 60 45" fill="#fff">
+            <rect x="0" y="0"    width="60" height="12" />
+            <rect x="0" y="16.5" width="60" height="12" />
+            <rect x="0" y="33"   width="60" height="12" />
+          </svg>
+          <span class="banner-300-name">Subfeed</span>
+        </div>
+        <div class="banner-300-headline">All your<br>creators.<br>One feed.</div>
+        <div class="banner-300-platforms">
+          <span class="banner-pill pill-yt">YouTube</span>
+          <span class="banner-pill pill-tw">Twitch</span>
+          <span class="banner-pill pill-kk">Kick</span>
+        </div>
+        <div class="banner-300-cta">Try free for 7 days</div>
+        <div class="banner-300-url">Then €2.99 one-time · subfeed.xyz</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -101,13 +101,13 @@ export default function Paywall({ onUnlock }) {
             </button>
             <p className="paywall-note">No payment needed · Expires after 7 days · Your channels are saved</p>
             <button className="paywall-pay-link" onClick={handlePay} disabled={loading}>
-              {loading ? 'Redirecting…' : 'Or get permanent access — €1'}
+              {loading ? 'Redirecting…' : 'Or get permanent access — €2.99'}
             </button>
           </>
         ) : (
           <>
             <button className="paywall-btn" onClick={handlePay} disabled={loading}>
-              {loading ? 'Redirecting to payment…' : 'Get Access — €1'}
+              {loading ? 'Redirecting to payment…' : 'Get Access — €2.99'}
             </button>
             <p className="paywall-note">One-time payment</p>
           </>

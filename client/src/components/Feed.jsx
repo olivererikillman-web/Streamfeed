@@ -401,7 +401,7 @@ export default function Feed({ newPurchase = false }) {
               {isTrial ? (
                 <>
                   <h3>Free Trial Active</h3>
-                  <p>You're on a 7-day free trial. Your channels are saved in your browser — you won't lose them when the trial ends. To keep access permanently, pay once for €1 and you'll get a key to restore access on any device.</p>
+                  <p>You're on a 7-day free trial. Your channels are saved in your browser — you won't lose them when the trial ends. To keep access permanently, pay once for €2.99 and you'll get a key to restore access on any device.</p>
                 </>
               ) : (
                 <>
