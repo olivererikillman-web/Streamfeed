@@ -1,30 +1,15 @@
-export default function SubfeedLogo({ size = 32, color = 'currentColor' }) {
+export default function SubfeedLogo({ size = 24, color = 'currentColor' }) {
   return (
     <svg
       width={size}
-      height={size * 1.2}
-      viewBox="0 0 200 240"
+      height={Math.round(size * 0.75)}
+      viewBox="0 0 60 45"
       xmlns="http://www.w3.org/2000/svg"
       fill={color}
     >
-      <defs>
-        <clipPath id="oval-clip">
-          <ellipse cx="100" cy="120" rx="95" ry="115" />
-        </clipPath>
-      </defs>
-      <ellipse cx="100" cy="120" rx="95" ry="115" />
-      {/* Upper-left white cut with chevron */}
-      <polygon
-        points="5,25 115,25 72,90 112,130 5,130"
-        fill="white"
-        clipPath="url(#oval-clip)"
-      />
-      {/* Lower-right white cut with chevron (mirrored) */}
-      <polygon
-        points="195,110 88,110 128,150 85,215 195,215"
-        fill="white"
-        clipPath="url(#oval-clip)"
-      />
+      <rect x="0" y="0"    width="60" height="12" />
+      <rect x="0" y="16.5" width="60" height="12" />
+      <rect x="0" y="33"   width="60" height="12" />
     </svg>
   )
 }

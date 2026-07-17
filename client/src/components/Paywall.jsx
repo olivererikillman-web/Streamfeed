@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SubfeedLogo from './SubfeedLogo'
 import './Paywall.css'
 
 const API = import.meta.env.VITE_API_URL || ''
@@ -79,7 +80,7 @@ export default function Paywall({ onUnlock }) {
     <div className="paywall">
       <div className="paywall-card">
         <div className="paywall-brand">Compane</div>
-        <div className="paywall-logo">Subfeed</div>
+        <div className="paywall-logo"><SubfeedLogo size={28} color="#fff" /> Subfeed</div>
         <h1>All your creators.<br />One feed.</h1>
         <p className="paywall-desc">
           Follow channels from YouTube, Twitch and Kick in one clean feed.

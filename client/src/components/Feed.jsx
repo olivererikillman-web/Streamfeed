@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import VideoCard from './VideoCard'
+import SubfeedLogo from './SubfeedLogo'
 import './Feed.css'
 
 const API = import.meta.env.VITE_API_URL || ''
@@ -359,7 +360,7 @@ export default function Feed({ newPurchase = false }) {
   return (
     <div className="feed-layout">
       <header className="feed-header">
-        <div className="feed-title">Subfeed</div>
+        <div className="feed-title"><SubfeedLogo size={22} color="#fff" /> Subfeed</div>
 
         <div className="header-actions">
           <button
