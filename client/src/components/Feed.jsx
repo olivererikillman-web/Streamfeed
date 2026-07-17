@@ -391,21 +391,38 @@ export default function Feed({ newPurchase = false }) {
         </div>
       </header>
 
-      {showKeyModal && (
-        <div className="key-modal-backdrop" onClick={() => setShowKeyModal(false)}>
-          <div className="key-modal" onClick={e => e.stopPropagation()}>
-            <h3>Your License Key</h3>
-            <p>⚠️ Copy this key and save it somewhere safe (notes app, email to yourself, etc.). This is the only way to restore access if you clear your browser or switch devices. It cannot be recovered.</p>
-            <textarea className="key-modal-text" readOnly value={localStorage.getItem('sf_license') || ''} rows={4} />
-            <div className="key-modal-actions">
-              <button className="key-modal-copy" onClick={() => { navigator.clipboard.writeText(localStorage.getItem('sf_license') || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
-                {copied ? 'Copied!' : 'Copy key'}
-              </button>
-              <button className="key-modal-close" onClick={() => setShowKeyModal(false)}>I've saved my key</button>
+      {showKeyModal && (() => {
+        let isTrial = false
+        try { const p = JSON.parse(atob((localStorage.getItem('sf_license') || '').split('.')[1])); isTrial = !!p.trial } catch {}
+        return (
+          <div className="key-modal-backdrop" onClick={() => setShowKeyModal(false)}>
+            <div className="key-modal" onClick={e => e.stopPropagation()}>
+              {isTrial ? (
+                <>
+                  <h3>Free Trial Active</h3>
+                  <p>You're on a 7-day free trial. Your channels are saved in your browser — you won't lose them when the trial ends. To keep access permanently, pay once for €1 and you'll get a key to restore access on any device.</p>
+                </>
+              ) : (
+                <>
+                  <h3>Your License Key</h3>
+                  <p>⚠️ Copy this key and save it somewhere safe (notes app, email to yourself, etc.). This is the only way to restore access if you clear your browser or switch devices. It cannot be recovered.</p>
+                  <textarea className="key-modal-text" readOnly value={localStorage.getItem('sf_license') || ''} rows={4} />
+                </>
+              )}
+              <div className="key-modal-actions">
+                {!isTrial && (
+                  <button className="key-modal-copy" onClick={() => { navigator.clipboard.writeText(localStorage.getItem('sf_license') || ''); setCopied(true); setTimeout(() => setCopied(false), 2000) }}>
+                    {copied ? 'Copied!' : 'Copy key'}
+                  </button>
+                )}
+                <button className="key-modal-close" onClick={() => setShowKeyModal(false)}>
+                  {isTrial ? 'Got it' : "I've saved my key"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {showYoutubeManager && (
         <ChannelManager

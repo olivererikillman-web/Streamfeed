@@ -98,7 +98,7 @@ export default function Paywall({ onUnlock }) {
             <button className="paywall-btn paywall-btn-trial" onClick={handleFreeTrial} disabled={trialLoading}>
               {trialLoading ? 'Activating…' : 'Try free for 7 days'}
             </button>
-            <p className="paywall-note">No payment needed · Expires after 7 days</p>
+            <p className="paywall-note">No payment needed · Expires after 7 days · Your channels are saved</p>
             <button className="paywall-pay-link" onClick={handlePay} disabled={loading}>
               {loading ? 'Redirecting…' : 'Or get permanent access — €1'}
             </button>
