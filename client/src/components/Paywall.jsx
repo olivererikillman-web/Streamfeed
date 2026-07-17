@@ -8,7 +8,8 @@ export default function Paywall({ onUnlock }) {
   const [loading, setLoading] = useState(false)
   const [trialLoading, setTrialLoading] = useState(false)
   const [error, setError] = useState('')
-  const [trialAvailable, setTrialAvailable] = useState(true)
+  // If a key already exists in localStorage (even expired), trial was already used on this device
+  const [trialAvailable, setTrialAvailable] = useState(() => !localStorage.getItem(LS_LICENSE))
   const [restoring, setRestoring] = useState(false)
   const [restoreKey, setRestoreKey] = useState('')
   const [restoreError, setRestoreError] = useState('')
