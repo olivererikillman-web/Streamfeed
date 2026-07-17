@@ -1,19 +1,26 @@
 const axios = require('axios');
 const setCors = require('./_cors');
 
-// Uploads playlist ID = 'UU' + channelId without 'UC' prefix (no API call needed)
 function uploadsPlaylistId(channelId) {
   return 'UU' + channelId.slice(2);
 }
 
-// Fetch up to 50 recent uploads from a channel via the uploads playlist
+// Parse ISO 8601 duration string to seconds (e.g. PT1H2M3S)
+function parseDuration(d) {
+  if (!d) return 0;
+  const m = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+}
+
+// Fetch up to 30 recent uploads from a channel via the uploads playlist
 async function fetchChannelVideos(channel, apiKey) {
   try {
     const r = await axios.get('https://www.googleapis.com/youtube/v3/playlistItems', {
       params: {
         part: 'snippet',
         playlistId: uploadsPlaylistId(channel.id),
-        maxResults: 50,
+        maxResults: 30,
         key: apiKey,
       },
       timeout: 8000,
@@ -43,7 +50,26 @@ async function fetchChannelVideos(channel, apiKey) {
   }
 }
 
-// Check if a video is portrait (Short) by reading the oardefault.jpg binary header
+// Batch-fetch durations for up to 50 video IDs in one API call (costs 1 quota unit)
+async function fetchDurations(videoIds, apiKey) {
+  try {
+    const r = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+      params: { part: 'contentDetails', id: videoIds.join(','), key: apiKey },
+      timeout: 8000,
+    });
+    const map = {};
+    for (const item of r.data.items || []) {
+      map[item.id] = parseDuration(item.contentDetails?.duration);
+    }
+    return map;
+  } catch (e) {
+    console.error('Duration fetch error:', e.message);
+    return {};
+  }
+}
+
+// Check if a video is portrait (Short) by reading the oardefault.jpg binary header.
+// Only called for videos ≤5 min, keeping the number of HTTP checks small.
 async function isPortraitVideo(videoId) {
   try {
     const r = await axios.get(`https://i.ytimg.com/vi/${videoId}/oardefault.jpg`, {
@@ -75,31 +101,41 @@ module.exports = async (req, res) => {
 
   const channels = ids.map((id, i) => ({ id, name: decodeURIComponent(names[i] || id) }));
 
-  // Fetch recent uploads from all channels in parallel (up to 50 per channel)
+  // Step 1: Fetch recent uploads from all channels in parallel (30 per channel)
   const channelResults = await Promise.allSettled(
     channels.map(ch => fetchChannelVideos(ch, apiKey))
   );
+  const allVideos = channelResults
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value);
 
-  // Build per-channel video lists
-  const channelVideos = new Map();
-  for (let i = 0; i < channels.length; i++) {
-    const result = channelResults[i];
-    if (result.status === 'fulfilled' && result.value.length > 0) {
-      channelVideos.set(channels[i].id, result.value);
-    }
-  }
+  // Step 2: Batch-fetch durations (50 per API call — ~12 calls for 20 channels × 30 videos)
+  const allIds = allVideos.map(v => v.videoId);
+  const batches = [];
+  for (let i = 0; i < allIds.length; i += 50) batches.push(allIds.slice(i, i + 50));
+  const durationMaps = await Promise.all(batches.map(b => fetchDurations(b, apiKey)));
+  const durations = Object.assign({}, ...durationMaps);
 
-  // Check portrait format for all videos in parallel
-  const allVideos = [...channelVideos.values()].flat();
+  // Step 3: Videos >5 min are definitely not Shorts — keep without further checks.
+  //         Videos ≤5 min need portrait detection via oardefault.jpg.
+  const SHORTS_MAX = 300;
+  const definitelyRegular = allVideos.filter(v => (durations[v.videoId] || 0) > SHORTS_MAX);
+  const maybeShorts = allVideos.filter(v => (durations[v.videoId] || 0) <= SHORTS_MAX);
+
+  // Step 4: Portrait-check only the short candidates (typically <10% of all videos)
   const portraitChecks = await Promise.allSettled(
-    allVideos.map(async v => ({ ...v, portrait: await isPortraitVideo(v.videoId) }))
+    maybeShorts.map(async v => ({ ...v, portrait: await isPortraitVideo(v.videoId) }))
   );
+  const confirmedRegular = portraitChecks
+    .filter(r => r.status === 'fulfilled' && !r.value.portrait)
+    .map(r => r.value);
 
-  // Group non-portrait videos by channel, take up to 5 per channel
+  // Step 5: Merge, sort by date, cap at 5 per channel
+  const combined = [...definitelyRegular, ...confirmedRegular]
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
   const byChannel = new Map();
-  for (const result of portraitChecks) {
-    if (result.status !== 'fulfilled' || result.value.portrait) continue;
-    const v = result.value;
+  for (const v of combined) {
     if (!byChannel.has(v.channelId)) byChannel.set(v.channelId, []);
     const list = byChannel.get(v.channelId);
     if (list.length < 5) {

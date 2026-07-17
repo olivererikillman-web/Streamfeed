@@ -249,9 +249,13 @@ export default function Feed({ newPurchase = false }) {
       ? `ids=${yt.map(c => c.id).join(',')}&names=${yt.map(c => encodeURIComponent(c.name)).join(',')}`
       : null
 
+    const ytTimeout = new Promise(resolve => setTimeout(() => resolve([]), 14000))
     const [ytVideos, kickVideos, twitchVideos] = await Promise.all([
       ytParams
-        ? fetch(`${API}/api/feed?${ytParams}`).then(r => r.ok ? r.json() : []).catch(() => [])
+        ? Promise.race([
+            fetch(`${API}/api/feed?${ytParams}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            ytTimeout,
+          ])
         : Promise.resolve([]),
       fetchKickData(kick),
       fetchTwitchData(twitch),
