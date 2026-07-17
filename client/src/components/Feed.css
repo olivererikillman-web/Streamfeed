@@ -645,3 +645,87 @@
 }
 
 .key-modal-close:hover { border-color: #555; color: #ccc; }
+
+/* ── Responsive ── */
+
+/* Tablet: hide Watch Later sidebar, main content fills width */
+@media (max-width: 768px) {
+  .watch-later-panel {
+    display: none;
+  }
+}
+
+/* Phone */
+@media (max-width: 640px) {
+  /* Header stacks: title on top, action buttons scroll horizontally below */
+  .feed-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 0 8px;
+    margin-bottom: 14px;
+  }
+
+  .header-actions {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+  }
+
+  .header-actions::-webkit-scrollbar { display: none; }
+
+  .platform-mgr-btn,
+  .logout-btn,
+  .key-btn {
+    flex-shrink: 0;
+    font-size: 13px;
+    padding: 5px 10px;
+  }
+
+  /* Filter pills: horizontal scroll instead of wrapping grid */
+  .filter-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+  }
+
+  .filter-bar::-webkit-scrollbar { display: none; }
+
+  .live-grid,
+  .video-grid {
+    gap: 12px;
+  }
+
+  .live-section {
+    padding: 12px;
+    margin-bottom: 20px;
+  }
+
+  .live-section-title {
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+
+  .channel-manager {
+    padding: 14px;
+  }
+
+  .welcome-state {
+    padding: 32px 4px;
+  }
+
+  .welcome-platform-card {
+    min-width: 100px;
+    padding: 16px 18px;
+  }
+
+  .state-msg {
+    padding: 40px 0;
+  }
+}

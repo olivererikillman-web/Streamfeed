@@ -170,3 +170,20 @@
   padding: 2px 6px;
   border-radius: 4px;
 }
+
+@media (max-width: 640px) {
+  /* No hover lift on touch screens */
+  .video-card:hover {
+    transform: none;
+  }
+
+  /* Watch Later button always visible (no hover on touch) */
+  .watch-later-btn {
+    opacity: 1;
+  }
+
+  /* Hide play overlay (no hover on touch) */
+  .play-overlay {
+    display: none;
+  }
+}
