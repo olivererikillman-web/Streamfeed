@@ -170,7 +170,6 @@ export default function Feed({ newPurchase = false }) {
           const vodsData = await vodsRes.json()
           const vods = Array.isArray(vodsData) ? vodsData : (vodsData.data || [])
           for (const vod of vods) {
-            const uuid = vod.video?.uuid
             items.push({
               id: `kick-vod-${vod.id}`,
               title: vod.session_title || vod.title || 'Untitled VOD',
@@ -178,7 +177,7 @@ export default function Feed({ newPurchase = false }) {
               channelId: `kick-${slug}`,
               thumbnail: vod.thumbnail?.src || vod.thumbnail,
               publishedAt: parseKickDate(vod.created_at).toISOString(),
-              url: `https://kick.com/${slug}/videos/${vod.id}`,
+              url: `https://kick.com/${slug}/videos/${vod.slug}`,
               platform: 'kick', isLive: false
             })
           }
