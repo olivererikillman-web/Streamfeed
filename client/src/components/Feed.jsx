@@ -178,7 +178,7 @@ export default function Feed({ newPurchase = false }) {
               channelId: `kick-${slug}`,
               thumbnail: vod.thumbnail?.src || vod.thumbnail,
               publishedAt: parseKickDate(vod.created_at).toISOString(),
-              url: `https://kick.com/video/${uuid || vod.id}`,
+              url: `https://kick.com/${slug}`,
               platform: 'kick', isLive: false
             })
           }
