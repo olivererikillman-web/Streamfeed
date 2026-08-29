@@ -118,7 +118,6 @@ export default function Feed({ newPurchase = false }) {
   const [error, setError] = useState(null)
   const [activeChannel, setActiveChannel] = useState('all')
   const [activePlatform, setActivePlatform] = useState('all')
-  const [embedVideo, setEmbedVideo] = useState(null)
 
   const [youtubeChannels, setYoutubeChannels] = useState(() => loadFromStorage('youtube'))
   const [kickChannels, setKickChannels] = useState(() => loadFromStorage('kick'))
@@ -164,7 +163,6 @@ export default function Feed({ newPurchase = false }) {
             thumbnail: ch.banner_image?.url || ch.user?.profile_pic || null,
             publishedAt: parseKickDate(s.created_at).toISOString(),
             url: `https://kick.com/${slug}`,
-            embedUrl: `https://player.kick.com/${slug}`,
             platform: 'kick', isLive: true, viewers: s.viewer_count
           })
         }
@@ -181,7 +179,6 @@ export default function Feed({ newPurchase = false }) {
               thumbnail: vod.thumbnail?.src || vod.thumbnail,
               publishedAt: parseKickDate(vod.created_at).toISOString(),
               url: `https://kick.com/video/${uuid || vod.id}`,
-              embedUrl: uuid ? `https://player.kick.com/video/${uuid}` : null,
               platform: 'kick', isLive: false
             })
           }
@@ -520,7 +517,6 @@ export default function Feed({ newPurchase = false }) {
                     key={video.id || video.videoId} video={video}
                     onWatchLater={toggleWatchLater}
                     inWatchLater={!!watchLater.find(v => (v.id || v.videoId) === (video.id || video.videoId))}
-                    onEmbed={video.embedUrl ? () => setEmbedVideo(video) : null}
                   />
                 ))}
               </div>
@@ -563,25 +559,7 @@ export default function Feed({ newPurchase = false }) {
         </aside>
       </div>
 
-      {embedVideo && (
-        <div className="embed-overlay" onClick={() => setEmbedVideo(null)}>
-          <div className="embed-modal" onClick={e => e.stopPropagation()}>
-            <div className="embed-modal-header">
-              <span className="embed-modal-title">{embedVideo.title}</span>
-              <button className="embed-modal-close" onClick={() => setEmbedVideo(null)}>✕</button>
-            </div>
-            <div className="embed-frame-wrap">
-              <iframe
-                src={embedVideo.embedUrl}
-                title={embedVideo.title}
-                allowFullScreen
-                allow="autoplay; fullscreen"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }
