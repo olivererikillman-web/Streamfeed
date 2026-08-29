@@ -18,7 +18,47 @@ function ClockIcon() {
   )
 }
 
-export default function VideoCard({ video, onWatchLater, inWatchLater }) {
+export default function VideoCard({ video, onWatchLater, inWatchLater, onEmbed }) {
+  if (onEmbed) {
+    return (
+      <div className="video-card" onClick={onEmbed} style={{ cursor: 'pointer' }}>
+        <div className="thumbnail-wrap">
+          <img src={video.thumbnail} alt={video.title} loading="lazy" referrerPolicy="no-referrer" />
+          {video.isLive
+            ? <div className="live-badge">LIVE</div>
+            : <div className="play-overlay">▶</div>
+          }
+          {onWatchLater && (
+            <button
+              className={`watch-later-btn${inWatchLater ? ' added' : ''}`}
+              title={inWatchLater ? 'Saved to Watch Later' : 'Save to Watch Later'}
+              onClick={e => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (!inWatchLater) onWatchLater(video)
+              }}
+            >
+              <ClockIcon />
+            </button>
+          )}
+          {video.platform === 'youtube' && <div className="platform-badge youtube">YT</div>}
+          {video.platform === 'kick' && <div className="platform-badge kick">Kick</div>}
+          {video.platform === 'twitch' && <div className="platform-badge twitch">Twitch</div>}
+          {video.isLive && video.viewers != null && (
+            <div className="viewer-count">{video.viewers.toLocaleString()} viewers</div>
+          )}
+        </div>
+        <div className="video-info">
+          <p className="video-title">{video.title}</p>
+          <div className="video-meta">
+            <span className="channel-name">{video.channelName}</span>
+            <span className="video-time">{video.isLive ? 'Live now' : timeAgo(video.publishedAt)}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <a href={video.url} target="_blank" rel="noopener noreferrer" className="video-card">
       <div className="thumbnail-wrap">
